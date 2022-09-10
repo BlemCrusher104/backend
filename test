@@ -115,7 +115,8 @@ local classes = {
         Position = {newUDim2(0, 0, 0, 0), "UDim2"},
         OutlineColor = {fromRGB(0, 0, 0), "Color3"},
         Outline = {true, "boolean"},
-        Filled = {true, "boolean"},
+        Thickness = {1, "number"},
+        Filled = {true, "boolean"}
     }
 }
 
@@ -790,10 +791,10 @@ function utility.auto_button_color(button, color, hover, click, holder)
 
     local is_theme = typeof(color) == "string"
 
-    local mouse_over = false
+    --local mouse_over = false
     local mouse_down = false
 
-    local enter = holder.MouseEnter:Connect(function()
+    --[[local enter = holder.MouseEnter:Connect(function()
         mouse_over = true
         button.Color = utility.color_add((is_theme and library.theme[color] or color), hover)
     end)
@@ -801,7 +802,7 @@ function utility.auto_button_color(button, color, hover, click, holder)
     local leave = holder.MouseLeave:Connect(function()
         mouse_over = false
         button.Color = (is_theme and library.theme[color] or color)
-    end)
+    end)]]
 
     local down = holder.MouseButton1Down:Connect(function()
         mouse_down = true
@@ -810,12 +811,13 @@ function utility.auto_button_color(button, color, hover, click, holder)
 
     local up = holder.MouseButton1Up:Connect(function()
         mouse_down = false
-        button.Color = mouse_over and utility.color_add((is_theme and library.theme[color] or color), hover) or (is_theme and library.theme[color] or color)
+        --button.Color = mouse_over and utility.color_add((is_theme and library.theme[color] or color), hover) or (is_theme and library.theme[color] or color)
+        button.Color = is_theme and library.theme[color] or color
     end)
 
     return function()
-        enter:Disconnect()
-        leave:Disconnect()
+        --enter:Disconnect()
+        --leave:Disconnect()
         down:Disconnect()
         up:Disconnect()
     end
@@ -1062,22 +1064,31 @@ function utility.round(number, float)
 end
 
 function utility.dragify(object, dragoutline)
-    local start, objectposition, dragging, currentpos
+    local start, object_position, dragging, currentpos
 
     library:Connect(object.InputBegan, function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
             dragging = true
             start = input.Position
-            objectposition = object.Position
+            object_position = object.Position
+
+            if library.performance_drag then
+                library.drag_outline.Visible = true
+                library.drag_outline.Position = object_position
+            end
         end
     end)
 
     library:Connect(services.UserInputService.InputChanged, function(input)
         if input.UserInputType == Enum.UserInputType.MouseMovement and dragging then
-            local new_position = newUDim2(objectposition.X.Scale, objectposition.X.Offset + (input.Position - start).X, objectposition.Y.Scale, objectposition.Y.Offset + (input.Position - start).Y)
+            local new_position = newUDim2(object_position.X.Scale, object_position.X.Offset + (input.Position - start).X, object_position.Y.Scale, object_position.Y.Offset + (input.Position - start).Y)
 
-            if (object.AbsolutePosition - calculate_udim2(new_position, workspace.CurrentCamera.ViewportSize)).Magnitude > 3 then
-                object.Position = new_position
+            if not library.performance_drag then
+                if (object.AbsolutePosition - calculate_udim2(new_position, workspace.CurrentCamera.ViewportSize)).Magnitude > 3 then
+                    object.Position = new_position
+                end
+            else
+                library.drag_outline.Position = new_position
             end
         end
     end)
@@ -1085,6 +1096,11 @@ function utility.dragify(object, dragoutline)
     library:Connect(services.UserInputService.InputEnded, function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 and dragging then 
             dragging = false
+
+            if library.performance_drag then
+                library.drag_outline.Visible = false
+                object.Position = library.drag_outline.Position
+            end
         end
     end)
 end 
@@ -1152,11 +1168,63 @@ function components.tooltip(object, text)
         tooltip.Visible = false
     end)
 
-    object.InputChanged:Connect(function(input)
+    library:Connect(services.UserInputService.InputChanged, function(input)
         if input.UserInputType == Enum.UserInputType.MouseMovement then
             tooltip.Position = newUDim2(0, input.Position.X, 0, input.Position.Y + 16)
         end
     end)
+end
+
+function components.separator(section, str)
+    str = str or ""
+
+    local holder = section.content:Create("Square", {
+        Size = newUDim2(1, 0, 0, 12),
+        Transparency = 0
+    })
+
+    local text = holder:Create("Text", {
+        Text = str,
+        Font = library.font,
+        Size = library.font_size,
+        Position = newUDim2(0.5, 0, 0, 0),
+        Theme = "Text",
+        ZIndex = 10,
+        Center = true
+    })
+
+    local str_empty = str ~= ""
+
+    local line_1 = holder:Create("Square", {
+        Size = newUDim2(0.5, str_empty and -text.TextBounds.X / 2 - 6 or 0, 0, 1),
+        Position = newUDim2(0, 0, 0.5, 0),
+        ZIndex = 9,
+        Theme = "Object Background",
+        OutlineTheme = "Object Border"
+    })
+
+    local line_2 = holder:Create("Square", {
+        Size =  newUDim2(0.5, str_empty and -text.TextBounds.X / 2 - 6 or 0, 0, 1),
+        Position = newUDim2(0.5, str_empty and text.TextBounds.X / 2 + 6 or 0, 0.5, 0),
+        ZIndex = 9,
+        Theme = "Object Background",
+        OutlineTheme = "Object Border"
+    })
+
+    local separator_types = {}
+
+    function separator_types:Set(str)
+        text.Text = str
+
+        local size = newUDim2(0.5, -text.TextBounds.X / 2 - 6, 0, 1)
+        line_1.Size = size
+        line_2.Size = size
+
+        line_2.Position = newUDim2(0.5, text.TextBounds.X / 2 + 6, 0.5, 0)
+    end
+
+    utility.format(separator_types, true)
+    return separator_types
 end
 
 function components.button(section, options)
@@ -2196,11 +2264,14 @@ function components.colorpicker(holder, options)
 
             icon.Color = color
             alpha_frame.Color = color
-            saturation_frame.Color = color
 
             if not no_picker_update then
+                saturation_frame.Color = fromHSV(hue, 1, 1)
                 saturation_picker.Position = newUDim2(sat, 0, 1 - val, 0)
+
                 hue_picker.Position = newUDim2(hue, 0, 0, 0)
+                hue_position = hue
+
                 alpha_picker.Position = newUDim2(0, 0, 1 - opacity, 0)
             end
 
@@ -2237,6 +2308,8 @@ function components.colorpicker(holder, options)
 
         hue_position = sizeX
         hue_picker.Position = newUDim2(0, posX, 0, 0)
+        saturation_frame.Color = fromHSV(sizeX, 1, 1)
+
         set(fromHSV(sizeX, sat, val), alpha, false, true)
     end
 
@@ -2830,7 +2903,7 @@ function library:Load(options)
     utility.defaults(options, {
         title = "exodus",
         theme = "Default",
-        overrides = {Accent = fromRGB(255, 255, 255)},
+        overrides = {},
         folder = "exodus",
         extension = "json",
         game = "universal",
@@ -2842,6 +2915,7 @@ function library:Load(options)
         notificationyalignment = "bottom",
         watermarkxalignment = "left",
         watermarkyalignment = "top",
+        performancedrag = true,
         font = "plex",
         fontsize = 13,
         discord = "6wp393UeCc",
@@ -2852,7 +2926,7 @@ function library:Load(options)
     options.font = options.font:lower()
 
     self.font_size = options.fontsize
-    self.font = options.font == "plex" and Render.Fonts.Plex or options.font == "ui" and Render.Fonts.UI or options.font == "monospace" and Render.Fonts.Monospace or options.font == "system" and Render.Fonts.System
+    self.font = Render.Fonts[options.font:lower():gsub("^%l", upper)]
     self.tween_speed = options.tweenspeed
     self.easing_style = options.easingstyle
     self.toggle_speed = options.togglespeed
@@ -2861,6 +2935,7 @@ function library:Load(options)
     self.notification_y = options.notificationyalignment:lower()
     self.watermark_x = options.watermarkxalignment:lower()
     self.watermark_y = options.watermarkyalignment:lower()
+    self.performance_drag = options.performancedrag
     self.theme = clone(self.themes[options.theme])
     self.folder = options.folder
     self.discord = options.discord
@@ -2906,6 +2981,24 @@ function library:Load(options)
         Size = newUDim2(1, 0, 0, options.sizey),
         ZIndex = 3,
         Theme = "Window Background",
+        Outline = false
+    })
+
+    self.drag_outline = Render:Create("Square", {
+        Size = newUDim2(0, options.sizex, 0, options.sizey),
+        Visible = false,
+        Thickness = 1,
+        Filled = false,
+        Theme = "Accent",
+        Outline = false,
+        ZIndex = 2,
+    })
+
+    self.drag_outline:Create("Square", {
+        Size = newUDim2(1, 0, 1, 0),
+        Filled = false,
+        Theme = "Black Border",
+        Thickness = 2,
         Outline = false
     })
 
@@ -3115,6 +3208,10 @@ function library:Load(options)
     
                     utility.format(label_types, true)
                     return label_types
+                end
+
+                function section_types:Separator(str)
+                    return components.separator(self, str)
                 end
     
                 function section_types:Button(options)
@@ -3330,6 +3427,7 @@ function library:Load(options)
         autoload = configs:Toggle{
             name = "Autoload Config on Execute",
             default = false,
+            flag = "autoload",
             callback = function(value)
                 if library.initialized then
                     if value then
@@ -3409,6 +3507,7 @@ function library:Load(options)
                 name = option,
                 default = library.theme[option],
                 ignored = true,
+                flag = option,
                 callback = function(color)
                     library:ChangeThemeOption(option, color)
                 end
@@ -3422,6 +3521,7 @@ function library:Load(options)
             watermark_section:Toggle{
                 name = "Show Watermark",
                 default = true,
+                flag = "show_watermark",
                 callback = function()
                     watermark:Toggle()
                 end
@@ -3431,6 +3531,7 @@ function library:Load(options)
                 name = "Watermark Alignment",
                 default = library.watermark_y:gsub("^%l", upper) .. " " .. library.watermark_x:gsub("^%l", upper),
                 content = {"Top Left", "Top Right", "Bottom Left", "Bottom Right"},
+                flag = "watermark_alignment",
                 callback = function(alignment)
                     alignment = alignment:split(" ")
                     local y, x = alignment[1], alignment[2]
@@ -3472,10 +3573,20 @@ function library:Load(options)
 
         local misc = settings:Section{name = "Cheat", Side = "right"}
 
+        misc:Toggle{
+            name = "Performance Drag",
+            default = library.performance_drag,
+            flag = "performance_drag",
+            callback = function(value)
+                library.performance_drag = value
+            end
+        }
+
         misc:Keybind{
             name = "Menu Key",
             default = Enum.KeyCode.RightShift,
             blacklist = {Enum.UserInputType.MouseButton1, Enum.UserInputType.MouseButton2, Enum.UserInputType.MouseButton3},
+            flag = "menu_key",
             callback = function(_, from_setting)
                 if not from_setting then
                     library:Toggle()
@@ -3488,6 +3599,7 @@ function library:Load(options)
                 name = "Panic Key",
                 default = Enum.KeyCode.End,
                 blacklist = {Enum.UserInputType.MouseButton1, Enum.UserInputType.MouseButton2, Enum.UserInputType.MouseButton3},
+                flag = "panic_key",
                 callback = function(_, from_setting)
                     if not from_setting then
                         unload()
@@ -3501,6 +3613,7 @@ function library:Load(options)
             default = library.tween_speed,
             min = 0,
             max = 1,
+            flag = "tween_speed",
             callback = function(value)
                 library.tween_speed = value;
             end
@@ -3511,6 +3624,7 @@ function library:Load(options)
             default = library.fade_speed,
             min = 0,
             max = 1,
+            flag = "fade_speed",
             callback = function(value)
                 library.toggle_speed = value;
             end
@@ -3520,6 +3634,7 @@ function library:Load(options)
             name = "Easing Style",
             default = tostring(library.easing_style):gsub("Enum.EasingStyle.", ""),
             content = {"Linear", "Sine", "Back", "Quad", "Quart", "Quint", "Bounce", "Elastic", "Exponential", "Circular", "Cubic"},
+            flag = "easing_style",
             callback = function(style)
                 library.easing_style = Enum.EasingStyle[style]
             end
