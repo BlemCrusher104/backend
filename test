@@ -2,20 +2,16 @@
     Render object class thing for UI Libraries
 ]]
 
+repeat task.wait() until game:IsLoaded()
+
 -- Localization
-local game = game
 local fromRGB = Color3.fromRGB
 local newUDim2 = UDim2.new
 local newVector2 = Vector2.new
 local newDrawing = Drawing.new
 local newInstance = Instance.new
-local setmetatable = setmetatable
-local rawget, rawset = rawget, rawset
-local typeof = typeof
 local remove = table.remove
-local workspace = workspace
 local spawn = task.spawn
-local next = next
 local genv = getgenv()
 local getupvalue = debug.getupvalue
 
@@ -655,16 +651,12 @@ end
 
 local upper = string.upper
 local round, clamp = math.round, math.clamp
-local tonumber, tostring = tonumber, tostring
 local newInfo = TweenInfo.new
 local newColor3, fromHex, fromHSV = Color3.new, Color3.fromHex, Color3.fromHSV
-local unpack, clear, clone, find, concat = table.unpack, table.clear, table.clone, table.find, table.concat
 local decode = (syn and syn.crypt.base64.decode) or (crypt and crypt.base64decode) or base64_decode
+local unpack, clear, clone, find, concat = table.unpack, table.clear, table.clone, table.find, table.concat
 local request = syn and syn.request or request
 local inset = services.GuiService:GetGuiInset().Y
-local setclipboard = setclipboard
-local keypress, keyrelease, iswindowactive = keypress, keyrelease, iswindowactive
-local writefile, readfile, isfile, delfile, listfiles, makefolder, isfolder = writefile, readfile, isfile, delfile, listfiles, makefolder, isfolder
 local wait = task.wait
 
 local library = {
@@ -672,6 +664,7 @@ local library = {
     text = {},
     notifications = {},
     config_objects = {},
+    lists = {},
     opening = false,
     theme_objects = {objects = {}, outlines = {}},
     connections = {},
@@ -1063,7 +1056,7 @@ function utility.round(number, float)
     return float * round(number / float)
 end
 
-function utility.dragify(object, dragoutline)
+function utility.dragify(object, dragoutline, is_indicator)
     local start, object_position, dragging, currentpos
 
     library:Connect(object.InputBegan, function(input)
@@ -1072,7 +1065,7 @@ function utility.dragify(object, dragoutline)
             start = input.Position
             object_position = object.Position
 
-            if library.performance_drag then
+            if library.performance_drag and not is_indicator then
                 library.drag_outline.Visible = true
                 library.drag_outline.Position = object_position
             end
@@ -1083,7 +1076,7 @@ function utility.dragify(object, dragoutline)
         if input.UserInputType == Enum.UserInputType.MouseMovement and dragging then
             local new_position = newUDim2(object_position.X.Scale, object_position.X.Offset + (input.Position - start).X, object_position.Y.Scale, object_position.Y.Offset + (input.Position - start).Y)
 
-            if not library.performance_drag then
+            if not library.performance_drag or is_indicator then
                 if (object.AbsolutePosition - calculate_udim2(new_position, workspace.CurrentCamera.ViewportSize)).Magnitude > 3 then
                     object.Position = new_position
                 end
@@ -1097,7 +1090,7 @@ function utility.dragify(object, dragoutline)
         if input.UserInputType == Enum.UserInputType.MouseButton1 and dragging then 
             dragging = false
 
-            if library.performance_drag then
+            if library.performance_drag and not is_indicator then
                 library.drag_outline.Visible = false
                 object.Position = library.drag_outline.Position
             end
@@ -1314,8 +1307,16 @@ function components.toggle(holder, options)
         toggled = not toggled
 
         if not toggled then
+            if holder.keybind and library.keybind_list:Exists(options.name) then
+                library.keybind_list:ChangeObjectTheme(options.name, "Disabled Text")
+            end
+
             disconnect_auto_color = utility.auto_button_color(icon, "Object Background", fromRGB(3, 3, 3), fromRGB(8, 8, 8), holder.main)
         else
+            if holder.keybind and library.keybind_list:Exists(options.name) then
+                library.keybind_list:ChangeObjectTheme(options.name, "Text")
+            end
+
             disconnect_auto_color()
         end
 
@@ -1631,6 +1632,7 @@ function components.keybind(holder, options)
 
     utility.defaults(options, {
         ignored = options.noconfig or options.ignoreconfig or options.configignore or false,
+        listignored = options.listignore or options.ignorelist or options.nolist or false,
         mode = "normal",
         blacklist = {},
         flag = utility.new_flag(),
@@ -1652,6 +1654,10 @@ function components.keybind(holder, options)
 
     if options.tooltip then
         components.tooltip(holder.main, options.tooltip)
+    end
+
+    if not options.listignored then
+        library.keybind_list:Add(holder.name)
     end
 
     local keybind = holder.main:Create("Square", {
@@ -1691,6 +1697,11 @@ function components.keybind(holder, options)
 
         if key and enums[key] and (keys[key] or services.UserInputService:GetStringForKeyCode(key) ~= "") then
             local key_str = keys[key] or services.UserInputService:GetStringForKeyCode(key)
+            library.keybind_list:Change(holder.name, ("[%s] %s"):format(key_str, holder.name))
+
+            if not holder.toggle then
+                library.keybind_list:ChangeObjectTheme(holder.name, "Text")
+            end
 
             library:ChangeThemeObject(value, "Text")
             value.Text = key_str
@@ -1707,6 +1718,12 @@ function components.keybind(holder, options)
             library.flags[options.flag] = key
             options.callback(key, true)
         else
+            library.keybind_list:Change(holder.name, ("[NONE] %s"):format(holder.name))
+
+            if not holder.toggle then
+                library.keybind_list:ChangeObjectTheme(holder.name, "Disabled Text")
+            end
+
             library:ChangeThemeObject(value, "Disabled Text")
             value.Text = "NONE"
 
@@ -2391,6 +2408,128 @@ function components.colorpicker(holder, options)
     return colorpicker_types
 end
 
+function components.list(options)
+    utility.format(options)
+
+    utility.defaults(options, {
+        name = options.title or "indicator list",
+        sizex = 200,
+        content = {},
+        flag = utility.new_flag(),
+        callback = function() end
+    })
+
+    local objects = {}
+
+    local list = Render:Create("Square", {
+        Size = newUDim2(0, options.sizex, 0, 100),
+        Position = newUDim2(0.0095, 0, options.name == "Keybinds" and 0.35 or 0.055, 0),
+        ZIndex = 3,
+        Theme = "Window Background",
+        Outline = false
+    }, true)
+
+    library.lists[list] = list
+
+    list:Create("Square", {
+        Size = newUDim2(1, 2, 1, 2),
+        Position = newUDim2(0, -1, 0, -1),
+        Theme = "Window Border",
+        ZIndex = 2,
+        OutlineTheme = "Black Border"
+    }, true)
+
+    local title = list:Create("Text", {
+        Text = options.name,
+        Font = library.font,
+        Size = library.font_size,
+        Position = newUDim2(0, 6, 0, 4),
+        Theme = "Accent",
+        ZIndex = 4
+    }, true)
+
+    local list_content = list:Create("Square", {
+        Size = newUDim2(1, 0, 0, 0),
+        Position = newUDim2(0, 10, 0, 20),
+        Transparency = 0,
+        Outline = false
+    }, true)
+
+    list_content:AddList(3)
+
+    utility.dragify(list, nil, true)
+
+    local function update_flag(no_callback)
+        local tbl = {}
+
+        for str, _ in next, objects do
+            tbl[#tbl + 1] = str
+        end
+
+        library.flags[options.flag] = tbl
+        if not no_callback then
+            options.callback(tbl)
+        end
+    end
+
+    local function add(str)
+        objects[str] = list_content:Create("Square", {
+            Size = newUDim2(1, 0, 0, 13),
+            Transparency = 0,
+            Outline = false
+        }, true):Create("Text", {
+            Text = str,
+            Font = library.font,
+            Size = library.font_size,
+            Theme = "Text",
+            ZIndex = 4
+        }, true)
+
+        list.Size = newUDim2(0, options.sizex, 0, list_content._list._contentSize + 24)
+        update_flag(true)
+    end
+
+    for _, str in next, options.content do
+        add(str)
+    end
+
+    update_flag()
+
+    local list_types = {object = list}
+
+    function list_types:Set(str)
+        title.Text = str
+    end
+
+    function list_types:Exists(str)
+        return objects[str] and true or false
+    end
+
+    function list_types:Change(object, str)
+        objects[object].Text = str
+    end
+
+    function list_types:ChangeObjectTheme(object, theme)
+        library:ChangeThemeObject(objects[object], theme)
+    end
+
+    function list_types:Remove(object)
+        objects[object].Parent:Destroy()
+        objects[object] = nil
+    end
+
+    function list_types:Add(str)
+        add(str)
+    end
+
+    function list_types:Toggle()
+        list.Visible = not list.Visible
+    end
+
+    utility.format(list_types, true)
+    return list_types
+end
+
 function library:Connect(event, callback)
     local connection = event:Connect(callback)
     self.connections[connection] = true
@@ -2442,6 +2581,10 @@ function library:Unload(fade)
 
     self.holder:Destroy()
     self.watermark:Destroy()
+
+    for list, _ in next, library.lists do
+        list:Destroy()
+    end
 
     for _, notification in next, self.notifications do
         notification:Destroy()
@@ -2901,7 +3044,7 @@ function library:Load(options)
     utility.format(options)
 
     utility.defaults(options, {
-        title = "exodus",
+        title = options.name or "exodus",
         theme = "Default",
         overrides = {},
         folder = "exodus",
@@ -2916,6 +3059,7 @@ function library:Load(options)
         watermarkxalignment = "left",
         watermarkyalignment = "top",
         performancedrag = true,
+        keybindlist = true,
         font = "plex",
         fontsize = 13,
         discord = "6wp393UeCc",
@@ -2939,11 +3083,18 @@ function library:Load(options)
     self.theme = clone(self.themes[options.theme])
     self.folder = options.folder
     self.discord = options.discord
+    self.keybind_list_default = options.keybindlist
     self.extension = options.extension
     self.game = options.game
 
     for theme, value in next, options.overrides do
         self.theme[theme] = value
+    end
+
+    self.keybind_list = components.list{name = "Keybinds", flag = "keybind list"}
+
+    if not options.keybindlist then
+        self.keybind_list:Toggle()
     end
 
     self.holder = Render:Create("Square", {
@@ -3222,7 +3373,7 @@ function library:Load(options)
                     utility.format(options)
                     options.name = options.name or "toggle"
     
-                    local holder = {colorpickers = 0, section = self}
+                    local holder = {colorpickers = 0, section = self, name = options.name}
     
                     holder.main = self.content:Create("Square", {
                         Size = newUDim2(1, 0, 0, 13),
@@ -3297,7 +3448,7 @@ function library:Load(options)
                     utility.format(options)
                     options.name = options.name or "keybind"
     
-                    local holder = {section = self}
+                    local holder = {section = self, name = options.name}
     
                     holder.main = self.content:Create("Square", {
                         Size = newUDim2(1, 0, 0, 13),
@@ -3522,8 +3673,10 @@ function library:Load(options)
                 name = "Show Watermark",
                 default = true,
                 flag = "show_watermark",
-                callback = function()
-                    watermark:Toggle()
+                callback = function(bool)
+                    if library.watermark.Visible ~= bool then
+                        watermark:Toggle()
+                    end
                 end
             }
 
@@ -3541,14 +3694,6 @@ function library:Load(options)
         end
 
         local notifications_section = settings:Section{name = "Notifications"}
-
-        notifications_section:Toggle{
-            name = "Show Notifications",
-            default = true,
-            callback = function(value)
-                library.notification_holder.Visible = value
-            end
-        }
 
         notifications_section:Slider{
             name = "Notification Speed",
@@ -3572,6 +3717,17 @@ function library:Load(options)
         }
 
         local misc = settings:Section{name = "Cheat", Side = "right"}
+
+        misc:Toggle{
+            name = "Show Keybind List",
+            default = library.keybind_list_default,
+            flag = "keybind_list",
+            callback = function(value)
+                if library.keybind_list.object.Visible ~= value then
+                    library.keybind_list:Toggle()
+                end
+            end
+        }
 
         misc:Toggle{
             name = "Performance Drag",
