@@ -191,7 +191,7 @@ services.UserInputService.InputBegan:Connect(function(input, gpe)
 end)
 
 services.UserInputService.InputChanged:Connect(function(input, gpe)
-    for object, events in next, changed_events do
+    for object, events in next, events do
         if events.MouseEnter.Active or events.MouseLeave.Active or events.InputChanged.Active then
             if object.AbsoluteVisible and mouse_over(object) and not mouse_over_higher_object(object) then
                 if not events._mouseEntered and events.MouseEnter.Active then
@@ -476,8 +476,14 @@ function Render:Set(property, value)
         return
     end
 
-    if property == "Transparency" and self._outline then
-        setproperty(self._outline, "Transparency", value)
+    if property == "Transparency" then
+        if value ~= value then
+           value = 0 
+        end
+        
+        if self._outline then
+            setproperty(self._outline, "Transparency", value)
+        end
     end
 
     if property == "ZIndex" then
@@ -2118,6 +2124,7 @@ function components.dropdown(holder, options)
         return option_objects[option] and true or false
     end
 
+    utility.format(dropdown_types, true)
     return dropdown_types
 end
 
@@ -2405,6 +2412,10 @@ function components.colorpicker(holder, options)
         set(color)
     end
 
+    function colorpicker_types:SetAlpha(alpha)
+        set(fromHSV(hue_position, sat, val), alpha)
+    end
+
     utility.format(colorpicker_types, true)
     return colorpicker_types
 end
@@ -2426,6 +2437,7 @@ function components.list(options)
         Size = newUDim2(0, options.sizex, 0, 100),
         ZIndex = 3,
         Theme = "Window Background",
+        Position = newUDim2(0, 16, 0, 42),
         Outline = false
     }, true)
 
@@ -2656,9 +2668,14 @@ function library:FadeIn()
     end
 end
 
+local f
+f = hookfunction(makefolder, function(str)
+    print(str, debug.traceback())
+    return f(str)
+end)
+
 function library:Init()
-    local folder = self:CreateFolder("configs")
-    local config = self:GetFile(folder, "auto_load")
+    local config = self:GetFile("configs", "auto_load")
 
     self:LoadConfig(config)
     self:FadeIn()
@@ -2686,7 +2703,7 @@ function library:CreateFile(folder, name)
     end
 end
 
-function library:SaveFile(folder, name, data)
+function library:SaveFile(folder, name, exteison, data)
     if typeof(name) == "string" and name:find("%S+") then
         local folder = self:CreateFolder(folder)
         local file = ("%s//%s.%s"):format(folder, name, self.extension)
@@ -2711,12 +2728,13 @@ end
 function library:GetFiles(folder)
     local folder = ("%s//%s//%s"):format(self.folder, self.game, folder)
     local files = isfolder(folder) and listfiles(folder) or {}
+    local file_tbl = {}
 
     for i, file in next, files do
-        files[i] = file:gsub("%w+%W+%w+%W+%w+%W+", ""):gsub("." .. self.extension, "")
+        file_tbl[file:gsub("%w+%W+%w+%W+%w+%W+", ""):gsub("." .. self.extension, "")] = readfile(file)
     end
 
-    return files
+    return file_tbl
 end
 
 function library:DeleteFile(folder, name)
@@ -2794,14 +2812,15 @@ end
 
 function library:GetConfigs()
     local configs = self:GetFiles("configs")
+    local configs_tbl = {}
 
-    for i, config in next, configs do
-        if config:find("auto_load.") then
-            configs[i] = nil
+    for config, _ in next, configs do
+        if not config:find("auto_load.") then
+            configs_tbl[#configs_tbl + 1] = config
         end
     end
 
-    return configs
+    return configs_tbl
 end
 
 function library:DeleteConfig(name)
@@ -3893,4 +3912,4 @@ function library:Load(options)
 end
 
 utility.format(library, true)
-return library
+return library, utility
