@@ -3444,7 +3444,7 @@ function library:Playerlist(max_players)
 
         if tag then
             data.tag_size -= tag.TextBounds.X + 8
-            data.tags[options.text] = nil
+            data.tags[text] = nil
 
             for _, object in next, data.tags do
                 if object.Position.X.Offset > tag.Position.X.Offset then
