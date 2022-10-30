@@ -772,7 +772,7 @@ function utility.format(tbl, metatable)
     end
 end
 
-function utility.push_defaults(tbl, defaults)
+function utility.defaults(tbl, defaults)
     for option, default in next, defaults do
         if tbl[option] == nil then
             tbl[option] = default
@@ -1280,7 +1280,7 @@ function components.toggle(holder, options)
         callback = function() end
     })
 
-    local toggled = false
+    holder.toggled = false
 
     if not options.default then
         library.flags[options.flag] = options.default
@@ -1309,26 +1309,26 @@ function components.toggle(holder, options)
             current_tween:Cancel()
         end
 
-        toggled = not toggled
+        holder.toggled = not holder.toggled
 
-        if not toggled then
-            if holder.keybind and library.keybind_list:Exists(options.name) then
+        if not holder.toggled then
+            if holder.keybind and holder.keybind_mode ~= "hold" and library.keybind_list:Exists(options.name) then
                 library.keybind_list:ChangeObjectTheme(options.name, "Disabled Text")
             end
 
             disconnect_auto_color = utility.auto_button_color(icon, "Object Background", fromRGB(3, 3, 3), fromRGB(8, 8, 8), holder.main)
         else
-            if holder.keybind and library.keybind_list:Exists(options.name) then
+            if holder.keybind and holder.keybind_mode ~= "hold" and library.keybind_list:Exists(options.name) then
                 library.keybind_list:ChangeObjectTheme(options.name, "Text")
             end
 
             disconnect_auto_color()
         end
 
-        current_tween = library:ChangeThemeObject(icon, toggled and "Accent" or "Object Background")
+        current_tween = library:ChangeThemeObject(icon, holder.toggled and "Accent" or "Object Background")
 
-        library.flags[options.flag] = toggled
-        options.callback(toggled)
+        library.flags[options.flag] = holder.toggled
+        options.callback(holder.toggled)
     end
 
     if options.default then
@@ -1346,7 +1346,7 @@ function components.toggle(holder, options)
     end
 
     function toggle_types:Set(bool)
-        if toggled ~= bool then
+        if holder.toggled ~= bool then
             toggle()
         end
     end
@@ -1664,6 +1664,10 @@ function components.keybind(holder, options)
 
     if not options.listignored then
         library.keybind_list:Add(holder.name)
+
+        if not holder.toggled then
+            library.keybind_list:ChangeObjectTheme(holder.name, "Disabled Text")
+        end
     end
 
     local keybind = holder.main:Create("Square", {
@@ -1675,6 +1679,7 @@ function components.keybind(holder, options)
     })
 
     holder.keybind = keybind
+    holder.keybind_mode = options.mode
 
     utility.auto_button_color(keybind, "Object Background", fromRGB(3, 3, 3), fromRGB(8, 8, 8))
 
@@ -1703,9 +1708,12 @@ function components.keybind(holder, options)
 
         if key and enums[key] and (keys[key] or services.UserInputService:GetStringForKeyCode(key) ~= "") then
             local key_str = keys[key] or services.UserInputService:GetStringForKeyCode(key)
-            library.keybind_list:Change(holder.name, ("[%s] %s"):format(key_str, holder.name))
 
-            if not holder.toggle then
+            if not options.listignored then
+                library.keybind_list:Change(holder.name, ("[%s] %s"):format(key_str, holder.name))
+            end
+
+            if options.mode ~= "hold" and not holder.toggle then
                 library.keybind_list:ChangeObjectTheme(holder.name, "Text")
             end
 
@@ -1724,9 +1732,11 @@ function components.keybind(holder, options)
             library.flags[options.flag] = key
             options.callback(key, true)
         else
-            library.keybind_list:Change(holder.name, ("[NONE] %s"):format(holder.name))
+            if not options.listignored then
+                library.keybind_list:Change(holder.name, ("[NONE] %s"):format(holder.name))
+            end
 
-            if not holder.toggle then
+            if options.mode ~= "hold" and not holder.toggle then
                 library.keybind_list:ChangeObjectTheme(holder.name, "Disabled Text")
             end
 
@@ -1779,8 +1789,12 @@ function components.keybind(holder, options)
             if holder.toggle and options.mode ~= "hold" then
                 holder.toggle()
             end
-            
-            library.flags[options.flag .. "_holding"] = true
+
+            if options.mode == "hold" then
+                library.keybind_list:ChangeObjectTheme(holder.name, "Text")
+                library.flags[options.flag .. "_holding"] = true
+            end
+        
             options.callback(library.flags[options.flag], false, options.mode == "hold" and true)
         end
     end)
@@ -1788,8 +1802,9 @@ function components.keybind(holder, options)
     if options.mode == "hold" then
         library:Connect(services.UserInputService.InputEnded, function(input)
             if (input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode or input.UserInputType) == library.flags[options.flag] then
+                library.keybind_list:ChangeObjectTheme(holder.name, "Disabled Text")
                 library.flags[options.flag .. "_holding"] = false
-                options.callback(library.flags[options.flag], false,  false)
+                options.callback(library.flags[options.flag], false, false)
             end
         end)
     end
@@ -2426,6 +2441,7 @@ function components.list(options)
         name = options.title or "indicator list",
         sizex = 200,
         content = {},
+        position = newUDim2(0, 16, 0, 42),
         flag = utility.new_flag(),
         callback = function() end
     })
@@ -2434,11 +2450,19 @@ function components.list(options)
 
     local list = Render:Create("Square", {
         Size = newUDim2(0, options.sizex, 0, 100),
-        ZIndex = 3,
+        ZIndex = 43,
         Theme = "Window Background",
-        Position = newUDim2(0, 16, 0, 42),
+        Position = options.position,
         Outline = false
     }, true)
+
+    list:Create("Square", {
+        Size = newUDim2(1, 0, 1, -22),
+        Position = newUDim2(0, 0, 0, 22),
+        ZIndex = 44 ,
+        Theme = "Tab Background",
+        OutlineTheme = "Tab Border"
+    })
 
     library.lists[list] = list
 
@@ -2446,7 +2470,7 @@ function components.list(options)
         Size = newUDim2(1, 2, 1, 2),
         Position = newUDim2(0, -1, 0, -1),
         Theme = "Window Border",
-        ZIndex = 2,
+        ZIndex = 42,
         OutlineTheme = "Black Border"
     }, true)
 
@@ -2455,13 +2479,13 @@ function components.list(options)
         Font = library.font,
         Size = library.font_size,
         Position = newUDim2(0, 6, 0, 4),
-        Theme = "Accent",
-        ZIndex = 4
+        Theme = "Text",
+        ZIndex = 44
     }, true)
 
     local list_content = list:Create("Square", {
         Size = newUDim2(1, 0, 0, 0),
-        Position = newUDim2(0, 10, 0, 20),
+        Position = newUDim2(0, 6, 0, 28),
         Transparency = 0,
         Outline = false
     }, true)
@@ -2493,10 +2517,10 @@ function components.list(options)
             Font = library.font,
             Size = library.font_size,
             Theme = "Text",
-            ZIndex = 4
+            ZIndex = 44
         }, true)
 
-        list.Size = newUDim2(0, options.sizex, 0, list_content._list._contentSize + 24)
+        list.Size = newUDim2(0, options.sizex, 0, list_content._list._contentSize + 32)
         update_flag(true)
     end
 
@@ -3055,7 +3079,7 @@ end
 function library:Watermark(str)
     self.watermark = Render:Create("Square", {
         Position = newUDim2(0, 16, 0, 16),
-        ZIndex = 3,
+        ZIndex = 63,
         Visible = false,
         Theme = "Window Background"
     }, true)
@@ -3064,7 +3088,7 @@ function library:Watermark(str)
         Size = newUDim2(1, 4, 1, 4),
         Position = newUDim2(0, -2, 0, -2),
         Theme = "Accent",
-        ZIndex = 2,
+        ZIndex = 62,
         OutlineTheme = "Black Border"
     }, true)
     
@@ -3074,7 +3098,7 @@ function library:Watermark(str)
         Size = library.font_size,
         Position = newUDim2(0, 8, 0, 3),
         Theme = "Text",
-        ZIndex = 4,
+        ZIndex = 64,
         Outline = true,
     }, true)
 
@@ -3103,18 +3127,53 @@ end
 
 function library:Playerlist(max_players)
     local list = Render:Create("Square", {
-        Size = newUDim2(0, 400, 0, 410),
+        Size = newUDim2(0, 400, 0, 406),
         Position = newUDim2(0, self.holder.AbsolutePosition.X + self.window_x / 2 + 362, 0, self.holder.AbsolutePosition.Y),
-        ZIndex = 3,
+        ZIndex = 23,
         Theme = "Window Background",
         Outline = false,
     })
 
     list:Create("Square", {
+        Size = newUDim2(1, 0, 1, -22),
+        Position = newUDim2(0, 0, 0, 22),
+        ZIndex = 24,
+        Theme = "Tab Background",
+        OutlineTheme = "Tab Border",
+    })
+
+    list:Create("Text", {
+        Text = "Playerlist",
+        Font = library.font,
+        Size = library.font_size,
+        Position = newUDim2(0, 6, 0, 4),
+        Theme = "Text",
+        ZIndex = 24
+    }, true)
+
+    local scroll_object = list:Create("Square", {
+        Size = newUDim2(1, 0, 1, 0),
+        Transparency = 0,
+        Outline = false,
+        Ignored = true,
+        ZIndex = 32
+    })
+
+    scroll_object.MouseEnter:Connect(function()
+        services.ContextActionService:BindAction("disable_mouse_input", function()
+            return Enum.ContextActionResult.Sink
+        end, false, Enum.UserInputType.MouseButton1, Enum.UserInputType.MouseButton2, Enum.UserInputType.MouseButton3, Enum.UserInputType.MouseWheel)
+    end)
+
+    scroll_object.MouseLeave:Connect(function()
+        services.ContextActionService:UnbindAction("disable_mouse_input")
+    end)
+
+    list:Create("Square", {
         Size = newUDim2(1, 2, 1, 2),
         Position = newUDim2(0, -1, 0, -1),
         Theme = "Window Border",
-        ZIndex = 2,
+        ZIndex = 22,
         OutlineTheme = "Black Border"
     }, true)
 
@@ -3122,7 +3181,7 @@ function library:Playerlist(max_players)
     
     local holder = list:Create("Square", {
         Size = newUDim2(1, -20, 1, -60),
-        Position = newUDim2(0, 6, 0, 6),
+        Position = newUDim2(0, 6, 0, 28),
         Transparency = 0,
         Outline = false
     })
@@ -3134,22 +3193,21 @@ function library:Playerlist(max_players)
     local players = {}
     local player_data = {}
     local current_player
-    local cutoff = 178
+    local cutoff = 194
     local scrolling = false
     local tile_size = 18
     local max_bars = floor((list.AbsoluteSize.Y + 94 - cutoff) / (tile_size + 4))
     max_players = max_players - max_bars
 
     local indicator_holder = list:Create("Square", {
-        Size = newUDim2(0, 4, 1, -108),
-        Position = newUDim2(1, -10, 0, 6),
-        Theme = "Window Background",
-        ZIndex = 10,
+        Size = newUDim2(0, 4, 1, -126),
+        Position = newUDim2(1, -10, 0, 28),
+        Transparency = 0,
         Outline = false
     })
 
     local indicator = indicator_holder:Create("Square", {
-        ZIndex = 11,
+        ZIndex = 31,
         Theme = "Accent",
         Outline = false,
         Ignored = true,
@@ -3157,10 +3215,10 @@ function library:Playerlist(max_players)
     })
 
     local card = list:Create("Square", {
-        ZIndex = 7,
-        Theme = "Object Background",
+        ZIndex = 27,
+        Theme = "Section Background",
         Position = newUDim2(0, 6, 1, -88),
-        OutlineTheme = "Object Border",
+        OutlineTheme = "Section Border",
         Size = newUDim2(1, -12, 0, 80)
     })
 
@@ -3171,11 +3229,11 @@ function library:Playerlist(max_players)
         Center = false,
         Position = newUDim2(0, 60, 0, 8),
         Theme = "Text",
-        ZIndex = 8
+        ZIndex = 28
     })
 
     local headshot_bg = card:Create("Square", {
-        ZIndex = 9,
+        ZIndex = 29,
         Theme = "Object Background",
         OutlineTheme = "Object Border",
         Position = newUDim2(0, 6, 0, 6),
@@ -3183,13 +3241,13 @@ function library:Playerlist(max_players)
     })
 
     local headshot = headshot_bg:Create("Image", {
-        ZIndex = 10,
+        ZIndex = 30,
         Position = newUDim2(0, 2, 0, 2),
         Size = newUDim2(1, -2, 1, -2)
     })
     
     local fix = headshot_bg:Create("Square", {
-        ZIndex = 11,
+        ZIndex = 31,
         Theme = "Object Background",
         Outline = false,
         Position = newUDim2(0, 0, 0, 1),
@@ -3245,9 +3303,9 @@ function library:Playerlist(max_players)
         players[idx] = plr
 
         local bar = Render:Create("Square", {
-            ZIndex = 7,
-            Theme = "Object Background",
-            OutlineTheme = "Object Border",
+            ZIndex = 27,
+            Theme = "Section Background",
+            OutlineTheme = "Section Border",
             Size = newUDim2(1, 0, 0, tile_size)
         })
 
@@ -3258,7 +3316,7 @@ function library:Playerlist(max_players)
             Center = false,
             Position = newUDim2(0, 12, 0, 2),
             Theme = "Text",
-            ZIndex = 8
+            ZIndex = 28
         }).TextBounds.X
 
         player_data[plr] = {tags = {}, tag_size = bounds + 32, name = plr.Name, bar = bar}
@@ -3286,12 +3344,12 @@ function library:Playerlist(max_players)
     end
 
     local function scroll(amount)
-        current_scroll = amount
+        current_scroll = clamp(amount, 0, max_players)
 
         if current_scroll > 0 then
-            holder.Position = newUDim2(0, 6, 0, current_scroll * -tile_size - ((current_scroll) * 4) + 6)
+            holder.Position = newUDim2(0, 6, 0, current_scroll * -tile_size - ((current_scroll) * 4) + 28)
         else
-            holder.Position = newUDim2(0, 6, 0, 6)
+            holder.Position = newUDim2(0, 6, 0, 28)
         end
 
         indicator.Position = newUDim2(0, 0, (1 / (max_players + 1)) * current_scroll)
@@ -3322,6 +3380,16 @@ function library:Playerlist(max_players)
         end
     end)
 
+    scroll_object.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseWheel then
+            if input.Position.Z > 0 then
+                scroll(current_scroll - 1)
+            else
+                scroll(current_scroll + 1)
+            end
+        end
+    end)
+
     self:Connect(services.Players.PlayerRemoving, remove_plr)
     self:Connect(services.Players.PlayerAdded, create_player)
 
@@ -3340,7 +3408,7 @@ function library:Playerlist(max_players)
         })
 
         local button = card:Create("Square", {
-            ZIndex = 9,
+            ZIndex = 29,
             Theme = "Object Background",
             OutlineTheme = "Object Border"
         })
@@ -3358,7 +3426,7 @@ function library:Playerlist(max_players)
             Position = newUDim2(0.5, 0, 0, 1),
             Theme = "Text",
             Center = true,
-            ZIndex = 10
+            ZIndex = 30
         })
 
         self.button_size += text.TextBounds.X + 38
@@ -3386,7 +3454,7 @@ function library:Playerlist(max_players)
             Center = false,
             Position = newUDim2(0, 60, 0, 24 + (self.labels * 14)),
             Theme = "Text",
-            ZIndex = 8
+            ZIndex = 28
         })
 
         local function handle(plr)
@@ -3431,7 +3499,7 @@ function library:Playerlist(max_players)
             Center = false,
             Position = newUDim2(0, data.tag_size, 0, 2),
             Color = options.color,
-            ZIndex = 8
+            ZIndex = 28
         })
 
         data.tag_size += tag.TextBounds.X + 8
@@ -3518,7 +3586,7 @@ function library:Load(options)
         self.theme[theme] = value
     end
 
-    self.keybind_list = components.list{name = "Keybinds", flag = "keybind list"}
+    self.keybind_list = components.list{name = "Keybinds", flag = "keybind list", position = newUDim2(0, 16, 0.5, -100)}
 
     if not options.keybindlist then
         self.keybind_list:Toggle()
@@ -3583,16 +3651,6 @@ function library:Load(options)
         Thickness = 2,
         Outline = false
     })
-
-    main.MouseEnter:Connect(function()
-        services.ContextActionService:BindAction("disable_mouse_input", function()
-            return Enum.ContextActionResult.Sink
-        end, false, Enum.UserInputType.MouseButton1, Enum.UserInputType.MouseButton2, Enum.UserInputType.MouseButton3, Enum.UserInputType.MouseWheel)
-    end)
-
-    main.MouseLeave:Connect(function()
-        services.ContextActionService:UnbindAction("disable_mouse_input")
-    end)
 
     main:Create("Square", {
         Size = newUDim2(1, 2, 1, 2),
@@ -3683,9 +3741,92 @@ function library:Load(options)
             end
         end)
 
-        local tab_types = {}
+        local tab_types = {tab = tab, middle_column = middle_column, right_column = right_column, left_column = left_column, has_subtabs = false, text_bounds = 0, tab_buttons = {}}
+
+        function tab_types:SubTab(name)
+            self.has_subtabs = true
+            local first = #self.tab:GetChildren() == 3
+
+            local tab_button = self.tab:Create("Text", {
+                Text = name,
+                Font = library.font,
+                Size = library.font_size,
+                Center = false,
+                Position = newUDim2(0, self.text_bounds, 0, 0),
+                Theme = first and "Text" or "Disabled Text",
+                ZIndex = 5
+            })
+    
+            self.tab_buttons[tab_button] = true
+            self.text_bounds += tab_button.TextBounds.X + 7
+    
+            local tab = self.tab:Create("Square", {
+                Size = newUDim2(1, 0, 1, -12),
+                Position = newUDim2(0, 0, 0, 19),
+                Transparency = 0,
+                Visible = first,
+                Outline = false
+            })
+    
+            local left_column = tab:Create("Square", {
+                Transparency = 0,
+                Outline = false,
+                Size = newUDim2(1 / 3, -6, 1, 0)
+            })
+    
+            left_column:AddList(12)
+    
+            local middle_column = tab:Create("Square", {
+                Transparency = 0,
+                Outline = false,
+                Size = newUDim2(1 / 3, -6, 1, 0),
+                Position = newUDim2(1 / 3, 3, 0, 0)
+            })
+    
+            middle_column:AddList(12)
+    
+            local right_column = tab:Create("Square", {
+                Transparency = 0,
+                Outline = false,
+                Size = newUDim2(1 / 3, -6, 1, 0),
+                Position = newUDim2(2 / 3, 6, 0, 0)
+            })
+    
+            right_column:AddList(12)
+
+            tab_button.MouseButton1Click:Connect(function()
+                if not tab.Visible then
+                    for _, object in next, self.tab:GetChildren() do
+                        if object ~= tab and object._class ~= "Text" then
+                            object.Visible = false
+                        end
+                    end
+    
+                    for object, _ in next, self.tab_buttons do
+                        if object ~= tab_button then
+                            library:ChangeThemeObject(object, "Disabled Text")
+                        end
+                    end
+    
+                    library:ChangeThemeObject(tab_button, "Text")
+                    tab.Visible = true
+                end
+            end)
+
+            local column_types = clone(self)
+
+            column_types.has_subtabs = false
+            column_types.SubTab = nil
+            column_types.middle_column = middle_column
+            column_types.right_column = right_column
+            column_types.left_column = left_column
+
+            return column_types
+        end
 
         function tab_types:MultiSection(options)
+            if self.has_subtabs then return end
+
             utility.format(options)
 
             utility.defaults(options, {
@@ -3698,7 +3839,7 @@ function library:Load(options)
             local text_bounds = 6
 
             options.side = options.side:lower()
-            local column = options.side == "middle" and middle_column or options.side == "right" and right_column or left_column
+            local column = options.side == "middle" and self.middle_column or options.side == "right" and self.right_column or self.left_column
             local sections = {}
 
             local section = column:Create("Square", {
@@ -4301,4 +4442,4 @@ function library:Load(options)
 end
 
 utility.format(library, true)
-return library
+return library, utility
