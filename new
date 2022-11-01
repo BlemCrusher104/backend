@@ -281,7 +281,8 @@ function Render.new(class)
             _class = class,
             _outline = nil,
             _list = nil,
-            _listConnection = nil
+            _listConnection = nil,
+            Changed = Signal.new()
         }
 
         genv.render_cache[object._cacheIndex] = object
@@ -313,6 +314,8 @@ function Render.new(class)
 end
 
 function Render:Set(property, value)
+    self.Changed:Fire(property)
+
     if property == "Parent" then
         if self._properties.Parent then
             remove(self.Parent._children, self._childrenIndex)
@@ -384,9 +387,9 @@ function Render:Set(property, value)
                 self.Parent._list:UpdateObject(self)
             end
 
-            self:UpdateChildren("Size")
-
             queue_property_set(self, "Size", new_size)
+
+            self:UpdateChildren("Size")
             self:UpdateChildren("Position")
 
             return
@@ -667,6 +670,7 @@ local library = {
     objects = {},
     text = {},
     notifications = {},
+    drag_outlines = {},
     config_objects = {},
     player_cache = {},
     lists = {},
@@ -1061,7 +1065,7 @@ function utility.round(number, float)
     return float * round(number / float)
 end
 
-function utility.dragify(object, dragoutline, is_indicator)
+function utility.dragify(object, drag_outline)
     local start, object_position, dragging, currentpos
 
     library:Connect(object.InputBegan, function(input)
@@ -1070,9 +1074,9 @@ function utility.dragify(object, dragoutline, is_indicator)
             start = input.Position
             object_position = object.Position
 
-            if library.performance_drag and not is_indicator then
-                library.drag_outline.Visible = true
-                library.drag_outline.Position = object_position
+            if library.performance_drag then
+                drag_outline.Visible = true
+                drag_outline.Position = object_position
             end
         end
     end)
@@ -1081,12 +1085,12 @@ function utility.dragify(object, dragoutline, is_indicator)
         if input.UserInputType == Enum.UserInputType.MouseMovement and dragging then
             local new_position = newUDim2(object_position.X.Scale, object_position.X.Offset + (input.Position - start).X, object_position.Y.Scale, object_position.Y.Offset + (input.Position - start).Y)
 
-            if not library.performance_drag or is_indicator then
+            if not library.performance_drag then
                 if (object.AbsolutePosition - calculate_udim2(new_position, workspace.CurrentCamera.ViewportSize)).Magnitude > 3 then
                     object.Position = new_position
                 end
             else
-                library.drag_outline.Position = new_position
+                drag_outline.Position = new_position
             end
         end
     end)
@@ -1095,9 +1099,9 @@ function utility.dragify(object, dragoutline, is_indicator)
         if input.UserInputType == Enum.UserInputType.MouseButton1 and dragging then 
             dragging = false
 
-            if library.performance_drag and not is_indicator then
-                library.drag_outline.Visible = false
-                object.Position = library.drag_outline.Position
+            if library.performance_drag then
+                drag_outline.Visible = false
+                object.Position = drag_outline.Position
             end
         end
     end)
@@ -1121,14 +1125,6 @@ end
 
 function utility.tostring(input)
     return ("%.14g"):format(input)
-end
-
-function utility.defaults(tbl, defaults)
-    for option, default in next, defaults do
-        if tbl[option] == nil then
-            tbl[option] = default
-        end
-    end
 end
 
 function utility.new_flag()
@@ -1178,7 +1174,8 @@ function components.separator(section, str)
 
     local holder = section.content:Create("Square", {
         Size = newUDim2(1, 0, 0, 12),
-        Transparency = 0
+        Transparency = 0,
+        Outline = false
     })
 
     local text = holder:Create("Text", {
@@ -1316,10 +1313,22 @@ function components.toggle(holder, options)
                 library.keybind_list:ChangeObjectTheme(options.name, "Disabled Text")
             end
 
+            if holder.keybind_mode == "hold" and holder.key then
+                library.keybind_list:Remove(options.name)
+            end
+
             disconnect_auto_color = utility.auto_button_color(icon, "Object Background", fromRGB(3, 3, 3), fromRGB(8, 8, 8), holder.main)
         else
             if holder.keybind and holder.keybind_mode ~= "hold" and library.keybind_list:Exists(options.name) then
                 library.keybind_list:ChangeObjectTheme(options.name, "Text")
+            end
+
+            if holder.keybind_mode == "hold" and holder.key then
+                if not library.keybind_list:Exists(options.name) then
+                    library.keybind_list:Add(options.name, "Disabled Text")
+                end
+
+                library.keybind_list:Change(options.name, ("[%s] %s"):format(holder.key_str, holder.name))
             end
 
             disconnect_auto_color()
@@ -1662,12 +1671,8 @@ function components.keybind(holder, options)
         components.tooltip(holder.main, options.tooltip)
     end
 
-    if not options.listignored then
-        library.keybind_list:Add(holder.name)
-
-        if not holder.toggled then
-            library.keybind_list:ChangeObjectTheme(holder.name, "Disabled Text")
-        end
+    if not options.listignored and holder.toggle then
+        library.keybind_list:Add(holder.name, holder.toggled and "Text" or "Disabled Text")
     end
 
     local keybind = holder.main:Create("Square", {
@@ -1708,13 +1713,16 @@ function components.keybind(holder, options)
 
         if key and enums[key] and (keys[key] or services.UserInputService:GetStringForKeyCode(key) ~= "") then
             local key_str = keys[key] or services.UserInputService:GetStringForKeyCode(key)
+            holder.key_str = key_str
 
             if not options.listignored then
-                library.keybind_list:Change(holder.name, ("[%s] %s"):format(key_str, holder.name))
-            end
+                if not library.keybind_list:Exists(holder.name) and ((options.mode == "hold" and holder.toggle) and holder.toggled or true) then
+                    library.keybind_list:Add(holder.name, options.mode == "hold" and "Disabled Text" or "Text")
+                end
 
-            if options.mode ~= "hold" and not holder.toggle then
-                library.keybind_list:ChangeObjectTheme(holder.name, "Text")
+                if library.keybind_list:Exists(holder.name) then
+                    library.keybind_list:Change(holder.name, ("[%s] %s"):format(key_str, holder.name))
+                end
             end
 
             library:ChangeThemeObject(value, "Text")
@@ -1728,16 +1736,16 @@ function components.keybind(holder, options)
                 holder.minus.Position = newUDim2(1, -(29 + keybind.AbsoluteSize.X), 0, 0)
             end
 
+            holder.key = key
+
             library.flags[options.flag .. "_holding"] = false
             library.flags[options.flag] = key
             options.callback(key, true)
         else
-            if not options.listignored then
-                library.keybind_list:Change(holder.name, ("[NONE] %s"):format(holder.name))
-            end
+            holder.key_str = "NONE"
 
-            if options.mode ~= "hold" and not holder.toggle then
-                library.keybind_list:ChangeObjectTheme(holder.name, "Disabled Text")
+            if not options.listignored and library.keybind_list:Exists(holder.name) then
+                library.keybind_list:Remove(holder.name)
             end
 
             library:ChangeThemeObject(value, "Disabled Text")
@@ -1750,6 +1758,8 @@ function components.keybind(holder, options)
                 holder.plus.Position = newUDim2(1, -(13 + keybind.AbsoluteSize.X), 0, 0)
                 holder.minus.Position = newUDim2(1, -(29 + keybind.AbsoluteSize.X), 0, 0)
             end
+
+            holder.key = nil
 
             library.flags[options.flag .. "_holding"] = true
             library.flags[options.flag] = nil
@@ -1790,7 +1800,7 @@ function components.keybind(holder, options)
                 holder.toggle()
             end
 
-            if options.mode == "hold" then
+            if options.mode == "hold" and (holder.toggled ~= nil and holder.toggled) then
                 library.keybind_list:ChangeObjectTheme(holder.name, "Text")
                 library.flags[options.flag .. "_holding"] = true
             end
@@ -1802,7 +1812,10 @@ function components.keybind(holder, options)
     if options.mode == "hold" then
         library:Connect(services.UserInputService.InputEnded, function(input)
             if (input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode or input.UserInputType) == library.flags[options.flag] then
-                library.keybind_list:ChangeObjectTheme(holder.name, "Disabled Text")
+                if not holder.toggle or holder.toggled then
+                    library.keybind_list:ChangeObjectTheme(holder.name, "Disabled Text")
+                end
+
                 library.flags[options.flag .. "_holding"] = false
                 options.callback(library.flags[options.flag], false, false)
             end
@@ -1883,7 +1896,8 @@ function components.dropdown(holder, options)
     local content_holder = content_frame:Create("Square", {
         Transparency = 0,
         Size = newUDim2(1, -6, 1, -6),
-        Position = newUDim2(0, 3, 0, 3)
+        Position = newUDim2(0, 3, 0, 3),
+        Outline = false
     })
 
     content_holder:AddList(3)
@@ -2449,7 +2463,7 @@ function components.list(options)
     local objects = {}
 
     local list = Render:Create("Square", {
-        Size = newUDim2(0, options.sizex, 0, 100),
+        Size = newUDim2(0, options.sizex, 0, 0),
         ZIndex = 43,
         Theme = "Window Background",
         Position = options.position,
@@ -2459,10 +2473,10 @@ function components.list(options)
     list:Create("Square", {
         Size = newUDim2(1, 0, 1, -22),
         Position = newUDim2(0, 0, 0, 22),
-        ZIndex = 44 ,
+        ZIndex = 44,
         Theme = "Tab Background",
         OutlineTheme = "Tab Border"
-    })
+    }, true)
 
     library.lists[list] = list
 
@@ -2492,7 +2506,28 @@ function components.list(options)
 
     list_content:AddList(3)
 
-    utility.dragify(list, nil, true)
+    local drag_outline = Render:Create("Square", {
+        Size = newUDim2(0, options.sizex, 0, 100),
+        Thickness = 1,
+        Filled = false,
+        Visible = false,
+        Theme = "Accent",
+        Outline = false,
+        ZIndex = 41,
+    }, true)
+
+    library.drag_outlines[drag_outline] = true
+
+    drag_outline:Create("Square", {
+        Size = newUDim2(1, 0, 1, 0),
+        Filled = false,
+        Theme = "Black Border",
+        ZIndex = 40,
+        Thickness = 2,
+        Outline = false
+    }, true)
+
+    utility.dragify(list, drag_outline)
 
     local function update_flag(no_callback)
         local tbl = {}
@@ -2502,12 +2537,15 @@ function components.list(options)
         end
 
         library.flags[options.flag] = tbl
+
         if not no_callback then
             options.callback(tbl)
         end
     end
 
-    local function add(str)
+    local function add(str, theme)
+        theme = theme or "Text"
+
         objects[str] = list_content:Create("Square", {
             Size = newUDim2(1, 0, 0, 13),
             Transparency = 0,
@@ -2516,11 +2554,13 @@ function components.list(options)
             Text = str,
             Font = library.font,
             Size = library.font_size,
-            Theme = "Text",
+            Theme = theme,
             ZIndex = 44
         }, true)
 
         list.Size = newUDim2(0, options.sizex, 0, list_content._list._contentSize + 32)
+        drag_outline.Size = newUDim2(0, options.sizex, 0, list_content._list._contentSize + 32)
+
         update_flag(true)
     end
 
@@ -2551,10 +2591,15 @@ function components.list(options)
     function list_types:Remove(object)
         objects[object].Parent:Destroy()
         objects[object] = nil
+
+        list.Size = newUDim2(0, options.sizex, 0, list_content._list._contentSize + 32)
+        drag_outline.Size = newUDim2(0, options.sizex, 0, list_content._list._contentSize + 32)
+
+        update_flag(true)
     end
 
-    function list_types:Add(str)
-        add(str)
+    function list_types:Add(str, theme)
+        add(str, theme)
     end
 
     function list_types:Toggle()
@@ -2615,6 +2660,10 @@ function library:Unload(fade)
 
     for list, _ in next, library.lists do
         list:Destroy()
+    end
+
+    for outline, _ in next, library.drag_outlines do
+        outline:Destroy()
     end
 
     for _, notification in next, self.notifications do
@@ -2757,7 +2806,7 @@ function library:GetFiles(folder)
     local file_tbl = {}
 
     for i, file in next, files do
-        file_tbl[file:gsub("%w+%W+%w+%W+%w+%W+", ""):split(".")[2]] = readfile(file)
+        file_tbl[file:gsub("%w+%W+%w+%W+%w+%W+", ""):split(".")[1]] = readfile(file)
     end
 
     return file_tbl
@@ -3081,12 +3130,13 @@ function library:Watermark(str)
         Position = newUDim2(0, 16, 0, 16),
         ZIndex = 63,
         Visible = false,
-        Theme = "Window Background"
+        Theme = "Window Background",
+        Outline = false
     }, true)
 
     self.watermark:Create("Square", {
-        Size = newUDim2(1, 4, 1, 4),
-        Position = newUDim2(0, -2, 0, -2),
+        Size = newUDim2(1, 2, 1, 2),
+        Position = newUDim2(0, -1, 0, -1),
         Theme = "Accent",
         ZIndex = 62,
         OutlineTheme = "Black Border"
@@ -3177,7 +3227,28 @@ function library:Playerlist(max_players)
         OutlineTheme = "Black Border"
     }, true)
 
-    utility.dragify(list, nil, true)
+    local drag_outline = Render:Create("Square", {
+        Size = newUDim2(0, 400, 0, 406),
+        Thickness = 1,
+        Filled = false,
+        Theme = "Accent",
+        Visible = false,
+        Outline = false,
+        ZIndex = 21,
+    }, true)
+
+    library.drag_outlines[drag_outline] = true
+
+    drag_outline:Create("Square", {
+        Size = newUDim2(1, 0, 1, 0),
+        Filled = false,
+        Theme = "Black Border",
+        ZIndex = 20,
+        Thickness = 2,
+        Outline = false
+    }, true)
+
+    utility.dragify(list, drag_outline)
     
     local holder = list:Create("Square", {
         Size = newUDim2(1, -20, 1, -60),
@@ -3605,8 +3676,6 @@ function library:Load(options)
         self:Playerlist(options.playerlistmax)
     end
 
-    utility.dragify(self.holder)
-
     self.title_bounds = self.holder:Create("Text", {
         Text = options.title .. " |  ",
         Font = self.font,
@@ -3634,23 +3703,27 @@ function library:Load(options)
         Outline = false
     })
 
-    self.drag_outline = Render:Create("Square", {
+    local drag_outline = Render:Create("Square", {
         Size = newUDim2(0, options.sizex, 0, options.sizey),
-        Visible = false,
         Thickness = 1,
         Filled = false,
+        Visible = false,
         Theme = "Accent",
         Outline = false,
         ZIndex = 2,
-    })
+    }, true)
 
-    self.drag_outline:Create("Square", {
+    library.drag_outlines[drag_outline] = true
+
+    drag_outline:Create("Square", {
         Size = newUDim2(1, 0, 1, 0),
         Filled = false,
         Theme = "Black Border",
         Thickness = 2,
         Outline = false
-    })
+    }, true)
+
+    utility.dragify(self.holder, drag_outline)
 
     main:Create("Square", {
         Size = newUDim2(1, 2, 1, 2),
@@ -4106,11 +4179,12 @@ function library:Load(options)
             flag = "selected_config"
         }
 
-        spawn(function()
-            while wait(1) do
+        configs:Button{
+            name = "Refresh Configs",
+            callback = function()
                 config_dropdown:Refresh(library:GetConfigs())
             end
-        end)
+        }
 
         configs:Box{
             name = "Config Name",
@@ -4328,12 +4402,14 @@ function library:Load(options)
                 library.performance_drag = value
             end
         }
+        
 
         misc:Keybind{
             name = "Menu Key",
             default = Enum.KeyCode.RightShift,
             blacklist = {Enum.UserInputType.MouseButton1, Enum.UserInputType.MouseButton2, Enum.UserInputType.MouseButton3},
             flag = "menu_key",
+            listignored = true,
             callback = function(_, from_setting)
                 if not from_setting then
                     library:Toggle()
@@ -4347,6 +4423,7 @@ function library:Load(options)
                 default = Enum.KeyCode.End,
                 blacklist = {Enum.UserInputType.MouseButton1, Enum.UserInputType.MouseButton2, Enum.UserInputType.MouseButton3},
                 flag = "panic_key",
+                listignored = true,
                 callback = function(_, from_setting)
                     if not from_setting then
                         unload()
