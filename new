@@ -193,7 +193,7 @@ end)
 services.UserInputService.InputChanged:Connect(function(input, gpe)
     for object, events in next, events do
         if events.MouseEnter.Active or events.MouseLeave.Active or events.InputChanged.Active then
-            if object.AbsoluteVisible and mouse_over(object) and not mouse_over_higher_object(object) then
+            if object.AbsoluteVisible and mouse_over(object) then
                 if not events._mouseEntered and events.MouseEnter.Active then
                     events.MouseEnter:Fire(input)
                 end
@@ -3137,7 +3137,7 @@ function library:Watermark(str)
     self.watermark:Create("Square", {
         Size = newUDim2(1, 2, 1, 2),
         Position = newUDim2(0, -1, 0, -1),
-        Theme = "Accent",
+        Theme = "Window Border",
         ZIndex = 62,
         OutlineTheme = "Black Border"
     }, true)
