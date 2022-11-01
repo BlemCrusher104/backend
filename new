@@ -191,7 +191,7 @@ services.UserInputService.InputBegan:Connect(function(input, gpe)
 end)
 
 services.UserInputService.InputChanged:Connect(function(input, gpe)
-    for object, events in next, events do
+    for object, events in next, changed_events do
         if events.MouseEnter.Active or events.MouseLeave.Active or events.InputChanged.Active then
             if object.AbsoluteVisible and mouse_over(object) then
                 if not events._mouseEntered and events.MouseEnter.Active then
@@ -3273,8 +3273,9 @@ function library:Playerlist(max_players)
     local indicator_holder = list:Create("Square", {
         Size = newUDim2(0, 4, 1, -126),
         Position = newUDim2(1, -10, 0, 28),
-        Transparency = 0,
-        Outline = false
+        Theme = "Tab Background",
+        Outline = false,
+        ZIndex = 30
     })
 
     local indicator = indicator_holder:Create("Square", {
@@ -4519,4 +4520,4 @@ function library:Load(options)
 end
 
 utility.format(library, true)
-return library, utility
+return library
