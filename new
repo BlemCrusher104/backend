@@ -190,24 +190,29 @@ services.UserInputService.InputBegan:Connect(function(input, gpe)
     end
 end)
 
+local last_update = tick()
+
 services.UserInputService.InputChanged:Connect(function(input, gpe)
-    for object, events in next, changed_events do
-        if events.MouseEnter.Active or events.MouseLeave.Active or events.InputChanged.Active then
-            if object.AbsoluteVisible and mouse_over(object) then
-                if not events._mouseEntered and events.MouseEnter.Active then
-                    events.MouseEnter:Fire(input)
-                end
+    if tick() - last_update > 0.1 then
+        last_update = tick()
+        for object, events in next, changed_events do
+            if events.MouseEnter.Active or events.MouseLeave.Active or events.InputChanged.Active then
+                if object.AbsoluteVisible and mouse_over(object) then
+                    if not events._mouseEntered and events.MouseEnter.Active then
+                        events.MouseEnter:Fire(input)
+                    end
 
-                events._mouseEntered = true
+                    events._mouseEntered = true
 
-                if events.InputChanged.Active then
-                    events.InputChanged:Fire(input, gpe)
-                end
-            elseif events._mouseEntered then
-                events._mouseEntered = false
+                    if events.InputChanged.Active then
+                        events.InputChanged:Fire(input, gpe)
+                    end
+                elseif events._mouseEntered then
+                    events._mouseEntered = false
 
-                if events.MouseLeave.Active then
-                    events.MouseLeave:Fire()
+                    if events.MouseLeave.Active then
+                        events.MouseLeave:Fire()
+                    end
                 end
             end
         end
@@ -4339,9 +4344,11 @@ function library:Load(options)
                 content = {"Top Left", "Top Right", "Bottom Left", "Bottom Right"},
                 flag = "watermark_alignment",
                 callback = function(alignment)
-                    alignment = alignment:split(" ")
-                    local y, x = alignment[1], alignment[2]
-                    library:ChangeWatermarkPosition(x, y)
+                    if alignment then
+                        alignment = alignment:split(" ")
+                        local y, x = alignment[1], alignment[2]
+                        library:ChangeWatermarkPosition(x, y)
+                    end
                 end
             }
         end
@@ -4363,9 +4370,11 @@ function library:Load(options)
             default = library.notification_y:gsub("^%l", upper) .. " " .. library.notification_x:gsub("^%l", upper),
             content = {"Top Left", "Top Right", "Bottom Left", "Bottom Right"},
             callback = function(alignment)
-                alignment = alignment:split(" ")
-                local y, x = alignment[1], alignment[2]
-                library:ChangeNotificationPosition(x, y)
+                if alignment then
+                    alignment = alignment:split(" ")
+                    local y, x = alignment[1], alignment[2]
+                    library:ChangeNotificationPosition(x, y)
+                end
             end
         }
 
