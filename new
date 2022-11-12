@@ -685,6 +685,7 @@ local library = {
     flags = {},
     initialized = false,
     open = false,
+    unloaded = false,
     paste_textbox = newInstance("TextBox"),
     unnamed_flags = 0,
     themes = {
@@ -1318,7 +1319,7 @@ function components.toggle(holder, options)
                 library.keybind_list:ChangeObjectTheme(options.name, "Disabled Text")
             end
 
-            if holder.keybind_mode == "hold" and holder.key then
+            if holder.keybind_mode == "hold" and holder.key and library.keybind_list:Exists(options.name) then
                 library.keybind_list:Remove(options.name)
             end
 
@@ -1676,7 +1677,7 @@ function components.keybind(holder, options)
         components.tooltip(holder.main, options.tooltip)
     end
 
-    if not options.listignored and holder.toggle then
+    if not options.listignored and holder.toggle and options.mode ~= "hold" then
         library.keybind_list:Add(holder.name, holder.toggled and "Text" or "Disabled Text")
     end
 
@@ -1721,8 +1722,14 @@ function components.keybind(holder, options)
             holder.key_str = key_str
 
             if not options.listignored then
-                if not library.keybind_list:Exists(holder.name) and ((options.mode == "hold" and holder.toggle) and holder.toggled or true) then
-                    library.keybind_list:Add(holder.name, options.mode == "hold" and "Disabled Text" or "Text")
+                if not library.keybind_list:Exists(holder.name) then
+                    if options.mode == "hold" then
+                        if not holder.toggle or holder.toggled then
+                            library.keybind_list:Add(holder.name, "Disabled Text")
+                        end
+                    else
+                        library.keybind_list:Add(holder.name, "Text")
+                    end
                 end
 
                 if library.keybind_list:Exists(holder.name) then
@@ -2645,6 +2652,8 @@ function library:ChangeFontSize(size)
 end
 
 function library:Unload(fade)
+    self.unloaded = true
+
     if fade then
         if self.holder.Visible then
             self:Toggle()
@@ -3376,36 +3385,38 @@ function library:Playerlist(max_players)
     end
 
     local function create_player(plr)
-        local idx = #players + 1
-        players[idx] = plr
+        if not self.unloaded then
+            local idx = #players + 1
+            players[idx] = plr
 
-        local bar = Render:Create("Square", {
-            ZIndex = 27,
-            Theme = "Section Background",
-            OutlineTheme = "Section Border",
-            Size = newUDim2(1, 0, 0, tile_size)
-        })
+            local bar = Render:Create("Square", {
+                ZIndex = 27,
+                Theme = "Section Background",
+                OutlineTheme = "Section Border",
+                Size = newUDim2(1, 0, 0, tile_size)
+            })
 
-        local bounds = bar:Create("Text", {
-            Text = plr.Name,
-            Font = library.font,
-            Size = library.font_size,
-            Center = false,
-            Position = newUDim2(0, 12, 0, 2),
-            Theme = "Text",
-            ZIndex = 28
-        }).TextBounds.X
+            local bounds = bar:Create("Text", {
+                Text = plr.Name,
+                Font = library.font,
+                Size = library.font_size,
+                Center = false,
+                Position = newUDim2(0, 12, 0, 2),
+                Theme = "Text",
+                ZIndex = 28
+            }).TextBounds.X
 
-        player_data[plr] = {tags = {}, tag_size = bounds + 32, name = plr.Name, bar = bar}
+            player_data[plr] = {tags = {}, tag_size = bounds + 32, name = plr.Name, bar = bar}
 
-        -- parent after cuz my extension is goofy like that
-        bar.Parent = holder
+            -- parent after cuz my extension is goofy like that
+            bar.Parent = holder
 
-        update()
+            update()
 
-        bar.MouseButton1Click:Connect(function()
-            create_card(plr)
-        end)
+            bar.MouseButton1Click:Connect(function()
+                create_card(plr)
+            end)
+        end
     end
 
     local function remove_plr(plr)
