@@ -1326,7 +1326,7 @@ function components.toggle(holder, options)
             disconnect_auto_color = utility.auto_button_color(icon, "Object Background", fromRGB(3, 3, 3), fromRGB(8, 8, 8), holder.main)
         else
             if holder.keybind and holder.keybind_mode ~= "hold" and library.keybind_list:Exists(options.name) then
-                library.keybind_list:ChangeObjectTheme(options.name, "Text")
+                library.keybind_list:ChangeObjectTheme(options.name, "Accent")
             end
 
             if holder.keybind_mode == "hold" and holder.key then
@@ -1678,7 +1678,7 @@ function components.keybind(holder, options)
     end
 
     if not options.listignored and holder.toggle and options.mode ~= "hold" then
-        library.keybind_list:Add(holder.name, holder.toggled and "Text" or "Disabled Text")
+        library.keybind_list:Add(holder.name, holder.toggled and "Accent" or "Disabled Text")
     end
 
     local keybind = holder.main:Create("Square", {
@@ -1728,7 +1728,7 @@ function components.keybind(holder, options)
                             library.keybind_list:Add(holder.name, "Disabled Text")
                         end
                     else
-                        library.keybind_list:Add(holder.name, "Text")
+                        library.keybind_list:Add(holder.name, "Accent")
                     end
                 end
 
@@ -1813,7 +1813,7 @@ function components.keybind(holder, options)
             end
 
             if options.mode == "hold" and (holder.toggled ~= nil and holder.toggled) then
-                library.keybind_list:ChangeObjectTheme(holder.name, "Text")
+                library.keybind_list:ChangeObjectTheme(holder.name, "Accent")
                 library.flags[options.flag .. "_holding"] = true
             end
         
