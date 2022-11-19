@@ -1320,26 +1320,26 @@ function components.toggle(holder, options)
         holder.toggled = not holder.toggled
 
         if not holder.toggled then
-            if holder.keybind and holder.keybind_mode ~= "hold" and library.keybind_list:Exists(options.name) then
-                library.keybind_list:ChangeObjectTheme(options.name, "Disabled Text")
+            if holder.keybind and holder.keybind_mode ~= "hold" and library.keybind_list:Exists(holder.name) then
+                library.keybind_list:ChangeObjectTheme(holder.name, "Disabled Text")
             end
 
-            if holder.keybind_mode == "hold" and holder.key and library.keybind_list:Exists(options.name) then
-                library.keybind_list:Remove(options.name)
+            if holder.keybind_mode == "hold" and holder.key and library.keybind_list:Exists(holder.name) then
+                library.keybind_list:Remove(holder.name)
             end
 
             disconnect_auto_color = utility.auto_button_color(icon, "Object Background", fromRGB(3, 3, 3), fromRGB(8, 8, 8), holder.main)
         else
-            if holder.keybind and holder.keybind_mode ~= "hold" and library.keybind_list:Exists(options.name) then
-                library.keybind_list:ChangeObjectTheme(options.name, "Accent")
+            if holder.keybind and holder.keybind_mode ~= "hold" and library.keybind_list:Exists(holder.name) then
+                library.keybind_list:ChangeObjectTheme(holder.name, "Accent")
             end
 
             if holder.keybind_mode == "hold" and holder.key then
-                if not library.keybind_list:Exists(options.name) then
-                    library.keybind_list:Add(options.name, "Disabled Text")
+                if not library.keybind_list:Exists(holder.name) then
+                    library.keybind_list:Add(holder.name, "Disabled Text")
                 end
 
-                library.keybind_list:Change(options.name, ("[%s] %s"):format(holder.key_str, holder.name))
+                library.keybind_list:Change(holder.name, ("[%s] %s"):format(holder.key_str, holder.name))
             end
 
             disconnect_auto_color()
