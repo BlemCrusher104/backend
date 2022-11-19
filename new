@@ -584,6 +584,17 @@ end
 function Render:Destroy(from_clear)
     if self._exists then
         rawset(self, "_exists", false)
+        destroy(self._render)
+
+        if self._outline then
+            destroy(self._outline)
+        end
+
+        for _, event in next, self._events do
+            if typeof(event) == "table" and event.Destroy then
+                event:Destroy()
+            end
+        end
 
         if not from_clear then
             remove(genv.render_cache, self._cacheIndex)
@@ -622,12 +633,6 @@ function Render:Destroy(from_clear)
 
         if self._listConnection then
             self._listConnection:Disconnect()
-        end
-
-        destroy(self._render)
-
-        if self._outline then
-            destroy(self._outline)
         end
     end
 end
@@ -2261,30 +2266,30 @@ function components.colorpicker(holder, options)
         OutlineColor = fromRGB(0, 0, 0)
     })
 
-    local alpha_frame = window:Create("Square", {
-        Size = newUDim2(0, 9, 0, 110),
-        Position = newUDim2(1, -15, 1, -154),
-        Visible = options.alpha,
-        ZIndex = 27,
-        OutlineTheme = "Object Border"
-    })
+    local alpha_frame, alpha_picker
 
-    alpha_frame:Create("Image", {
-        Size = newUDim2(1, 0, 1, 0),
-        ZIndex = 28,
-        Ignored = true,
-        Transparency = 1,
-        Data = decode("iVBORw0KGgoAAAANSUhEUgAAAAkAAABuCAYAAAD1YDnyAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAFMSURBVFhHvZMhTMNQFEX/WOZwKBwON4dDNMHN4XBzc3M43BwOh8PhULip1s3hcLg53Nxcue9mIy/ty/8kDfcktzlpsv97xEZ1XacjVVUdLKWmaQ6W0slfNmrbdgIh/tf+1PCX3YUvu7MPP4WQQR8evuzO6s4gRFN3DiG5unFpvaOjWd0FhOTqwiv8ekdHs7pLCNHUTSFEU3cFIZq6awjR1N1AiKZuBiG5uuLsEX6Hn9XdQkiurjh7hFf4Wd0dhGjq5hCiqVtAiKZuCSGaunsI0dQ9QMjguuKsbgUhg+uKs7pHCNHUPUGIpu4ZQjR1LxCiqXuFEE3dG4Ro6t4hJFcX/mv9ekdHs7o1hOTqwiv8ekdHs7rfOzR1GwjR1H1AiKbuE0I0dV8QoqnbQkiurjh7hN/hZ3XfEJKrK84e4RV+VreDEE3dHkL+uy6NfwDz0OfO0eCa+AAAAABJRU5ErkJggg==")
-    })
-
-    local alpha_picker = alpha_frame:Create("Square", {
-        Size = newUDim2(1, 0, 0, 1),
-        ZIndex = 29,
-        OutlineTheme = "Object Border"
-    })
-
-    if not options.alpha then
-        alpha_frame:Destroy()
+    if options.alpha then
+        alpha_frame = window:Create("Square", {
+            Size = newUDim2(0, 9, 0, 110),
+            Position = newUDim2(1, -15, 1, -154),
+            Visible = options.alpha,
+            ZIndex = 27,
+            OutlineTheme = "Object Border"
+        })
+    
+        alpha_frame:Create("Image", {
+            Size = newUDim2(1, 0, 1, 0),
+            ZIndex = 28,
+            Ignored = true,
+            Transparency = 1,
+            Data = decode("iVBORw0KGgoAAAANSUhEUgAAAAkAAABuCAYAAAD1YDnyAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAFMSURBVFhHvZMhTMNQFEX/WOZwKBwON4dDNMHN4XBzc3M43BwOh8PhULip1s3hcLg53Nxcue9mIy/ty/8kDfcktzlpsv97xEZ1XacjVVUdLKWmaQ6W0slfNmrbdgIh/tf+1PCX3YUvu7MPP4WQQR8evuzO6s4gRFN3DiG5unFpvaOjWd0FhOTqwiv8ekdHs7pLCNHUTSFEU3cFIZq6awjR1N1AiKZuBiG5uuLsEX6Hn9XdQkiurjh7hFf4Wd0dhGjq5hCiqVtAiKZuCSGaunsI0dQ9QMjguuKsbgUhg+uKs7pHCNHUPUGIpu4ZQjR1LxCiqXuFEE3dG4Ro6t4hJFcX/mv9ekdHs7o1hOTqwiv8ekdHs7rfOzR1GwjR1H1AiKbuE0I0dV8QoqnbQkiurjh7hN/hZ3XfEJKrK84e4RV+VreDEE3dHkL+uy6NfwDz0OfO0eCa+AAAAABJRU5ErkJggg==")
+        })
+    
+        alpha_picker = alpha_frame:Create("Square", {
+            Size = newUDim2(1, 0, 0, 1),
+            ZIndex = 29,
+            OutlineTheme = "Object Border"
+        })
     end
 
     local box = window:Create("Square", {
@@ -2328,7 +2333,10 @@ function components.colorpicker(holder, options)
             end
 
             icon.Color = color
-            alpha_frame.Color = color
+
+            if options.alpha then
+                alpha_frame.Color = color
+            end
 
             if not no_picker_update then
                 saturation_frame.Color = fromHSV(hue, 1, 1)
@@ -2337,7 +2345,9 @@ function components.colorpicker(holder, options)
                 hue_picker.Position = newUDim2(hue, 0, 0, 0)
                 hue_position = hue
 
-                alpha_picker.Position = newUDim2(0, 0, 1 - opacity, 0)
+                if options.alpha then
+                    alpha_picker.Position = newUDim2(0, 0, 1 - opacity, 0)
+                end
             end
 
             if not from_input then
@@ -2396,10 +2406,12 @@ function components.colorpicker(holder, options)
         update_hue{Position = services.UserInputService:GetMouseLocation()}
     end)
 
-    alpha_frame.MouseButton1Down:Connect(function()
-        sliding_alpha = true
-        update_alpha{Position = services.UserInputService:GetMouseLocation() - newVector2(0, 36)}
-    end)
+    if options.alpha then
+        alpha_frame.MouseButton1Down:Connect(function()
+            sliding_alpha = true
+            update_alpha{Position = services.UserInputService:GetMouseLocation() - newVector2(0, 36)}
+        end)
+    end
 
     library:Connect(services.UserInputService.InputEnded, function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -2654,6 +2666,10 @@ end
 function library:Unload(fade)
     self.unloaded = true
 
+    for connection, _ in next, self.connections do
+        library:Disconnect(connection)
+    end
+
     if fade then
         if self.holder.Visible then
             self:Toggle()
@@ -2682,10 +2698,6 @@ function library:Unload(fade)
 
     for _, notification in next, self.notifications do
         notification:Destroy()
-    end
-
-    for connection, _ in next, self.connections do
-        library:Disconnect(connection)
     end
 end
 
@@ -2751,12 +2763,6 @@ function library:FadeIn()
     end
 end
 
-local f
-f = hookfunction(makefolder, function(str)
-    print(str, debug.traceback())
-    return f(str)
-end)
-
 function library:Init()
     local config = self:GetFile("configs", "auto_load")
 
@@ -2766,7 +2772,7 @@ function library:Init()
 end
 
 function library:CreateFolder(name)
-    local folder = ("%s//%s//%s"):format(self.folder, self.game, name)
+    local folder = ("%s\\%s\\%s"):format(self.folder, self.game, name)
 
     if not isfolder(folder) then
         makefolder(folder)
@@ -2780,7 +2786,7 @@ function library:CreateFile(folder, name, extension)
 
     if typeof(name) == "string" and name:find("%S+") then
         local folder = self:CreateFolder(folder)
-        local file = ("%s//%s.%s"):format(folder, name, extension)
+        local file = ("%s\\%s.%s"):format(folder, name, extension)
 
         writefile(file, "{}")
 
@@ -2793,7 +2799,7 @@ function library:SaveFile(folder, name, extension, data)
 
     if typeof(name) == "string" and name:find("%S+") then
         local folder = self:CreateFolder(folder)
-        local file = ("%s//%s.%s"):format(folder, name, extension)
+        local file = ("%s\\%s.%s"):format(folder, name, extension)
 
         if isfile(file) then
             writefile(file, data)
@@ -2806,7 +2812,7 @@ function library:GetFile(folder, name, extension)
 
     if typeof(name) == "string" and name:find("%S+") then
         local folder = self:CreateFolder(folder)
-        local file = ("%s//%s.%s"):format(folder, name, extension)
+        local file = ("%s\\%s.%s"):format(folder, name, extension)
 
         if isfile(file) then
             return readfile(file)
@@ -2815,7 +2821,7 @@ function library:GetFile(folder, name, extension)
 end
 
 function library:GetFiles(folder)
-    local folder = ("%s//%s//%s"):format(self.folder, self.game, folder)
+    local folder = ("%s\\%s\\%s"):format(self.folder, self.game, folder)
     local files = isfolder(folder) and listfiles(folder) or {}
     local file_tbl = {}
 
@@ -2828,8 +2834,8 @@ end
 
 function library:DeleteFile(folder, name, extension)
     if typeof(name) == "string" and name:find("%S+") then
-        local folder = ("%s//%s//%s"):format(self.folder, self.game, folder)
-        local file = ("%s//%s.%s"):format(folder, name, extension)
+        local folder = ("%s\\%s\\%s"):format(self.folder, self.game, folder)
+        local file = ("%s\\%s.%s"):format(folder, name, extension)
 
         if isfile(file) then
             delfile(file)
@@ -2844,8 +2850,8 @@ function library:CreateConfig(name)
 end
 
 function library:SetAutoLoadConfig(name)
-    local folder = ("%s//%s//configs"):format(self.folder, self.game)
-    local file = ("%s//%s.%s"):format(folder, "auto_load", self.extension)
+    local folder = ("%s\\%s\\configs"):format(self.folder, self.game)
+    local file = ("%s\\%s.%s"):format(folder, "auto_load", self.extension)
 
     writefile(file, name)
 end
@@ -2949,8 +2955,8 @@ function library:LoadTheme(name)
         self.theme = clone(self.themes[name])
         self:UpdateTheme()
     else
-        local folder = self.folder .. "//themes"
-        local file = ("%s//%s.json"):format(folder, name)
+        local folder = self.folder .. "\\themes"
+        local file = ("%s\\%s.json"):format(folder, name)
 
         if isfile(file) then
             local theme = services.HttpService:JSONDecode(readfile(file))
@@ -2977,8 +2983,8 @@ function library:SaveTheme(name)
         end
 
         local theme_str = services.HttpService:JSONEncode(theme)
-        local folder = self.folder .. "//themes"
-        local file = ("%s//%s.%s"):format(folder, name, self.extension)
+        local folder = self.folder .. "\\themes"
+        local file = ("%s\\%s.%s"):format(folder, name, self.extension)
 
         if not isfolder(folder) then
             makefolder(folder)
@@ -2991,7 +2997,7 @@ function library:SaveTheme(name)
 end
 
 function library:GetThemes()
-    local folder = self.folder .. "//themes"
+    local folder = self.folder .. "\\themes"
     local themes = {}
 
     for theme, _ in next, self.themes do
@@ -3000,7 +3006,7 @@ function library:GetThemes()
 
     if isfolder(folder) then
         for _, theme in next, listfiles(folder) do
-            themes[#themes + 1] = theme:gsub(folder .. "\\?\\?/?/?", ""):gsub("." .. self.extension, "")
+            themes[#themes + 1] = theme:gsub("%w+%W+%w+%W+%w+%W+", ""):split(".")[1]
         end
     end
 
@@ -3009,8 +3015,8 @@ end
 
 function library:DeleteTheme(name)
     if typeof(name) == "string" then
-        local folder = self.folder .. "//themes"
-        local file = ("%s//%s.%s"):format(folder, name, self.extension)
+        local folder = self.folder .. "\\themes"
+        local file = ("%s\\%s.%s"):format(folder, name, self.extension)
 
         if isfile(file) then
             delfile(file)
