@@ -2487,7 +2487,7 @@ function components.list(options)
     local objects = {}
 
     local list = Render:Create("Square", {
-        Size = newUDim2(0, options.sizex, 0, 0),
+        Size = newUDim2(0, options.sizex, 0, 32),
         ZIndex = 43,
         Theme = "Window Background",
         Position = options.position,
