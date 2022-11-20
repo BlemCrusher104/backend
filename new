@@ -712,6 +712,7 @@ local library = {
     }
 }
 
+library.theme = clone(library.themes["Default"]);
 library.paste_textbox.Position = newUDim2(-200, 0, 0, 0)
 
 function Render:Create(class, properties, no_cache)
