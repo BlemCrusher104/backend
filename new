@@ -2837,7 +2837,7 @@ function library:GetFiles(folder)
     local file_tbl = {}
 
     for i, file in next, files do
-        file_tbl[file:gsub("%w+%W+%w+%W+%w+%W+", ""):split(".")[1]] = readfile(file)
+        file_tbl[file:gsub("%w+%W+%w+%W+%w+%W+%w+%W", ""):split(".")[1]] = readfile(file)
     end
 
     return file_tbl
