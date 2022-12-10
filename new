@@ -3300,6 +3300,8 @@ function library:Loader(options)
         window.Position = utility.center(window.AbsoluteSize.X, main.AbsoluteSize.Y);
     end
 
+    load.MouseButton1Click:Connect(options.callback);
+
     changelog.MouseButton1Click:Connect(function()
         change_log.Visible = not change_log.Visible;
         resize();
