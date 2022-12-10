@@ -60,6 +60,10 @@ local getproperty = is_synX and getupvalue(line_mt.__index, 4) or getrenderprope
     return object[property]
 end
 
+local function round_position(position)
+    return newVector2(math.floor(position.X), math.floor(position.Y));
+end
+
 local function queue_property_set(object, property, value)
     if object.AbsoluteVisible then
         setproperty(object._render, property, value)
@@ -357,6 +361,7 @@ function Render:Set(property, value)
             new_position = calculate_udim2(value, workspace.CurrentCamera.ViewportSize)
         end
 
+        new_position = round_position(new_position);
         self._properties.Position = value
 
         if self._outline and self.AbsoluteVisible then
@@ -533,7 +538,7 @@ end
 function Render:UpdateChildren(property)
     if property == "Position" then
         for _, child in next, self._children do
-            local new_position = self.AbsolutePosition + calculate_udim2(child.Position, self.AbsoluteSize)
+            local new_position = round_position(self.AbsolutePosition + calculate_udim2(child.Position, self.AbsoluteSize));
             child._properties.AbsolutePosition = new_position
 
             queue_property_set(child, "Position", new_position)
@@ -692,6 +697,7 @@ local library = {
     initialized = false,
     open = false,
     unloaded = false,
+    performance_drag = true,
     paste_textbox = newInstance("TextBox"),
     unnamed_flags = 0,
     tween_speed = 0.1,
@@ -3066,6 +3072,263 @@ function library:DeleteTheme(name)
     end
 end
 
+function library:Loader(options)
+    utility.format(options);
+
+    utility.defaults(options, {
+        title = "Exodus",
+        description = "Loading...",
+        percentage = 50,
+        date = "16/01/22",
+        added = {},
+        changed = {},
+        removed = {},
+        callback = function() end,
+    });
+
+    local sizeX = 310;
+    local sizeY = 123;
+
+    local window = Render:Create("Square", {
+        Size = newUDim2(0, sizeX, 0, 22),
+        Position = utility.center(sizeX, sizeY),
+        ZIndex = 140,
+        Outline = false,
+        Visible = true,
+        Transparency = 0
+    });
+
+    window:Create("Text", {
+        Text = options.title,
+        Font = library.font,
+        Size = library.font_size,
+        Position = newUDim2(0, 6, 0, 4),
+        Theme = "Text",
+        ZIndex = 124
+    });
+
+    local main = window:Create("Square", {
+        Size = newUDim2(1, 0, 0, sizeY),
+        ZIndex = 123,
+        Theme = "Window Background",
+        Outline = false
+    });
+
+    main:Create("Square", {
+        Size = newUDim2(1, 2, 1, 2),
+        Position = newUDim2(0, -1, 0, -1),
+        Theme = "Window Border",
+        ZIndex = 122,
+        OutlineTheme = "Black Border"
+    });
+
+    local background = main:Create("Square", {
+        Size = newUDim2(1, 0, 1, -22),
+        Position = newUDim2(0, 0, 0, 22),
+        ZIndex = 125,
+        Theme = "Tab Background",
+        OutlineTheme = "Tab Border"
+    });
+
+    local holder = background:Create("Square", {
+        Size = newUDim2(1, -12, 1, -12),
+        Position = newUDim2(0, 6, 0, 6),
+        Transparency = 0,
+        Visible = true,
+        Outline = false
+    });
+
+    local change_log = holder:Create("Square", {
+        Visible = false,
+        Size = newUDim2(1, 0, 0, 0),
+        Position = newUDim2(0, 0, 0, 97),
+        ZIndex = 128,
+        Theme = "Tab Background",
+        Outline = false
+    });
+
+    change_log:Create("Square", {
+        Size = newUDim2(1, 2, 1, 2),
+        Position = newUDim2(0, -1, 0, -1),
+        Theme = "Tab Border",
+        ZIndex = 127,
+        OutlineTheme = "Black Border"
+    });
+
+    change_log:Create("Text", {
+        Text = "Changelog - Last Update: " .. options.date,
+        Font = library.font,
+        Size = library.font_size,
+        Position = newUDim2(0, 6, 0, 4),
+        Theme = "Text",
+        ZIndex = 129
+    });
+
+    local bound_addition = 0;
+
+    for _, text in next, options.added do
+        bound_addition += change_log:Create("Text", {
+            Text = "+ " .. text,
+            Font = library.font,
+            Size = library.font_size,
+            Position = newUDim2(0, 6, 0, 20 + bound_addition),
+            Color = newColor3(0.46, 1, 0.69),
+            ZIndex = 129
+        }).TextBounds.Y;
+    end
+
+    for _, text in next, options.changed do
+        bound_addition += change_log:Create("Text", {
+            Text = "* " .. text,
+            Font = library.font,
+            Size = library.font_size,
+            Position = newUDim2(0, 6, 0, 20 + bound_addition),
+            Theme = "Disabled Text",
+            ZIndex = 129
+        }).TextBounds.Y;
+    end
+
+    for _, text in next, options.removed do
+        bound_addition += change_log:Create("Text", {
+            Text = "- " .. text,
+            Font = library.font,
+            Size = library.font_size,
+            Position = newUDim2(0, 6, 0, 20 + bound_addition),
+            Color = newColor3(1, 0.258823, 0.258823),
+            ZIndex = 129
+        }).TextBounds.Y;
+    end
+
+    change_log.Size = newUDim2(1, 0, 0, bound_addition + 26);
+
+    local textbounds = utility.text_length(options.description, library.font, library.font_size);
+
+    local description_text = holder:Create("Text", {
+        Text = options.description,
+        Font = library.font,
+        Size = library.font_size,
+        Position = newUDim2(0.5, -textbounds.X * 0.5, 0, 2.5),
+        Theme = "Text",
+        ZIndex = 126
+    });
+
+    local slider = holder:Create("Square", {
+        Size = newUDim2(1, 0, 0, 10),
+        Position = newUDim2(0, 0, 0, 25),
+        ZIndex = 126,
+        Theme = "Object Background",
+        OutlineTheme = "Object Border"
+    });
+
+    local fill = slider:Create("Square", {
+        Size = newUDim2(options.percentage * 0.01, 0, 1, 0),
+        ZIndex = 127,
+        Ignored = true,
+        Theme = "Accent",
+        Outline = false
+    });
+
+    fill:Create("Image", {
+        Size = newUDim2(1, 0, 1, 0),
+        Transparency = 0.5,
+        ZIndex = 128,
+        Data = decode("iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAABuSURBVChTxY9BDoAgDASLGD2ReOYNPsR/+BAfroI7hibe9OYmky2wbUPIOdsXdc1f9WMwppQm+SDGBnUvomAQBH49qzhFEag25869ElzaIXDhD4JGbyoEVxUedN8FKwnfmwhucgKICc+pNB1mZhdCdhsa2ky0FAAAAABJRU5ErkJggg==")
+    })
+
+    local load = holder:Create("Square", {
+        Position = newUDim2(0, 0, 0, 42),
+        Size = newUDim2(0.5, -4, 0, 20),
+        ZIndex = 126,
+        Theme = "Object Background",
+        OutlineTheme = "Object Border"
+    });
+
+    utility.auto_button_color(load, "Object Background", fromRGB(3, 3, 3), fromRGB(8, 8, 8))
+
+    load:Create("Text", {
+        Text = "Load",
+        Font = library.font,
+        Size = library.font_size,
+        Position = newUDim2(0.5, 0, 0, 3),
+        Theme = "Text",
+        Center = true,
+        ZIndex = 127
+    });
+
+    local close = holder:Create("Square", {
+        Position = newUDim2(0.5, 4, 0, 42),
+        Size = newUDim2(0.5, -4, 0, 20),
+        ZIndex = 126,
+        Theme = "Object Background",
+        OutlineTheme = "Object Border"
+    });
+
+    utility.auto_button_color(close, "Object Background", fromRGB(3, 3, 3), fromRGB(8, 8, 8))
+
+    close:Create("Text", {
+        Text = "Close",
+        Font = library.font,
+        Size = library.font_size,
+        Position = newUDim2(0.5, 0, 0, 3),
+        Theme = "Text",
+        Center = true,
+        ZIndex = 127
+    });
+
+    local changelog = holder:Create("Square", {
+        Position = newUDim2(0, 0, 0, 69),
+        Size = newUDim2(1, 0, 0, 20),
+        ZIndex = 126,
+        Theme = "Object Background",
+        OutlineTheme = "Object Border"
+    });
+
+    utility.auto_button_color(changelog, "Object Background", fromRGB(3, 3, 3), fromRGB(8, 8, 8))
+
+    changelog:Create("Text", {
+        Text = "Changelog",
+        Font = library.font,
+        Size = library.font_size,
+        Position = newUDim2(0.5, 0, 0, 3),
+        Theme = "Text",
+        Center = true,
+        ZIndex = 127
+    });
+
+    local function resize()
+        main.Size = newUDim2(1, 0, 0, sizeY + (change_log.Visible and 34 + bound_addition or 0));
+        window.Position = utility.center(window.AbsoluteSize.X, main.AbsoluteSize.Y);
+    end
+
+    changelog.MouseButton1Click:Connect(function()
+        change_log.Visible = not change_log.Visible;
+        resize();
+    end);
+
+    resize();
+
+    local loader_types = {};
+
+    function loader_types:Set(description, percentage)
+        local textbounds = utility.text_length(description, library.font, library.font_size);
+        description_text.Text = description;
+        description_text.Position = newUDim2(0.5, -textbounds.X * 0.5, 0, 2.5);
+
+        fill:Tween(newInfo(library.tween_speed, library.easing_style), { Size = newUDim2(percentage * 0.01, 0, 1, 0) });
+    end
+
+    function loader_types:Close()
+        window:Destroy();
+    end
+
+    close.MouseButton1Click:Connect(function()
+        loader_types:Close();
+    end);
+
+    utility.format(loader_types, true);
+    return loader_types;
+end
+
 local left = library.notification_x == "left"
 local top = library.notification_y == "top"
 
@@ -3202,7 +3465,7 @@ function library:Watermark(str)
         ZIndex = 62,
         OutlineTheme = "Black Border"
     }, true)
-    
+
     local text = self.watermark:Create("Text", {
         Text = str,
         Font = library.font,
@@ -4535,7 +4798,7 @@ function library:Load(options)
 
                     return components.colorpicker(holder, options)
                 end
-    
+
                 utility.format(section_types, true)
                 sections[#sections + 1] = section_types
             end
