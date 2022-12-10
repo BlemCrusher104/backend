@@ -2015,25 +2015,35 @@ function components.dropdown(holder, options, zindex)
                 end
 
                 update_value()
-                option_objects[chosen].chosen = true
-                option_objects[chosen].object:Tween(newInfo(library.tween_speed, library.easing_style), {Transparency = 1})
 
-                library:ChangeThemeObject(option_objects[chosen].text, "Text")
+                local option_object = option_objects[chosen];
 
-                library.flags[options.flag] = chosen
-                options.callback(chosen)
+                if (option_object) then
+                    option_object.chosen = true
+                    option_object.object:Tween(newInfo(library.tween_speed, library.easing_style), {Transparency = 1})
+
+                    library:ChangeThemeObject(option_object.text, "Text")
+
+                    library.flags[options.flag] = chosen
+                    options.callback(chosen)
+                end
             else
                 if not is_config then
                     current = nil
 
                     update_value()
-                    option_objects[chosen].chosen = false
-                    option_objects[chosen].object:Tween(newInfo(library.tween_speed, library.easing_style), {Transparency = 0})
 
-                    library:ChangeThemeObject(option_objects[chosen].text, "Disabled Text")
-                    
-                    library.flags[options.flag] = nil
-                    options.callback(nil)
+                    local option_object = option_objects[chosen];
+
+                    if (option_object) then
+                        option_object.chosen = false
+                        option_object.object:Tween(newInfo(library.tween_speed, library.easing_style), {Transparency = 0})
+
+                        library:ChangeThemeObject(option_object.text, "Disabled Text")
+                        
+                        library.flags[options.flag] = nil
+                        options.callback(nil)
+                    end
                 else
                     library.flags[options.flag] = chosen
                     options.callback(chosen)
@@ -2887,7 +2897,8 @@ function library:GetFiles(folder)
     local file_tbl = {}
 
     for i, file in next, files do
-        file_tbl[file:gsub("%w+%W+%w+%W+%w+%W+%w+%W", ""):split(".")[1]] = readfile(file)
+        print(folder, file:gsub(folder .. "\\", ""))
+        file_tbl[file:gsub(folder .. "\\", ""):split(".")[1]] = readfile(file)
     end
 
     return file_tbl
@@ -2962,6 +2973,12 @@ function library:LoadConfig(name)
                     object:Set(value)
                 end
             end
+
+            library:LoadTheme(library.flags["selected_theme"]);
+
+            for option, colorpicker in next, theme_colorpickers do
+                colorpicker:Set(library.theme[option])
+            end
         end
     end
 end
@@ -3015,7 +3032,7 @@ function library:LoadTheme(name)
     if self.themes[name] then
         self.theme = clone(self.themes[name])
         self:UpdateTheme()
-    else
+    elseif (typeof(name) == "string") then
         local folder = self.folder .. "\\themes"
         local file = ("%s\\%s.json"):format(folder, name)
 
@@ -3067,7 +3084,7 @@ function library:GetThemes()
 
     if isfolder(folder) then
         for _, theme in next, listfiles(folder) do
-            themes[#themes + 1] = theme:gsub("%w+%W+%w+%W+%w+%W+", ""):split(".")[1]
+            themes[#themes + 1] = theme:gsub(folder .. "\\", ""):split(".")[1]
         end
     end
 
@@ -4931,7 +4948,7 @@ function library:Load(options)
         local theme_dropdown = themes:Dropdown{
             name = "Theme",
             content = library:GetThemes(),
-            flag = "selected_theme"
+            flag = "selected_theme",
         }
 
         themes:Box{
@@ -5094,20 +5111,20 @@ function library:Load(options)
             end
         }
 
-        if unload then
-            misc:Keybind{
-                name = "Panic Key",
-                default = Enum.KeyCode.End,
-                blacklist = {Enum.UserInputType.MouseButton1, Enum.UserInputType.MouseButton2, Enum.UserInputType.MouseButton3},
-                flag = "panic_key",
-                listignored = true,
-                callback = function(_, from_setting)
-                    if not from_setting then
-                        unload()
-                    end
+        misc:Keybind{
+            name = "Panic Key",
+            default = Enum.KeyCode.End,
+            blacklist = {Enum.UserInputType.MouseButton1, Enum.UserInputType.MouseButton2, Enum.UserInputType.MouseButton3},
+            flag = "panic_key",
+            listignored = true,
+            callback = function(_, from_setting)
+                if not from_setting then
+                    (unload or function()
+                        library:Unload();
+                    end)();
                 end
-            }
-        end
+            end
+        }
 
         misc:Slider{
             name = "Tween Speed",
@@ -5164,7 +5181,7 @@ function library:Load(options)
 
         misc:Button{
             name = "Join Discord Server",
-            callback = function() 
+            callback = function()
                 request{
                     ["Url"] = "http://127.0.0.1:6463/rpc?v=1",
                     ["Method"] = "POST",
