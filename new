@@ -1330,6 +1330,13 @@ function components.toggle(holder, options, zindex)
         OutlineTheme = "Object Border"
     })
 
+    icon:Create("Image", {
+        Size = newUDim2(1, 0, 1, 0),
+        Transparency = 0.4,
+        ZIndex = zindex + 1,
+        Data = decode("iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAABuSURBVChTxY9BDoAgDASLGD2ReOYNPsR/+BAfroI7hibe9OYmky2wbUPIOdsXdc1f9WMwppQm+SDGBnUvomAQBH49qzhFEag25869ElzaIXDhD4JGbyoEVxUedN8FKwnfmwhucgKICc+pNB1mZhdCdhsa2ky0FAAAAABJRU5ErkJggg==")
+    })
+
     holder.text.Position = newUDim2(0, 16, 0, 0)
 
     local disconnect_auto_color = utility.auto_button_color(icon, "Object Background", fromRGB(3, 3, 3), fromRGB(8, 8, 8), holder.main)
@@ -1516,6 +1523,13 @@ function components.slider(holder, options, zindex)
         Ignored = true,
         Theme = "Accent",
         Outline = false
+    })
+
+    fill:Create("Image", {
+        Size = newUDim2(1, 0, 1, 0),
+        Transparency = 0.5,
+        ZIndex = zindex + 2,
+        Data = decode("iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAABuSURBVChTxY9BDoAgDASLGD2ReOYNPsR/+BAfroI7hibe9OYmky2wbUPIOdsXdc1f9WMwppQm+SDGBnUvomAQBH49qzhFEag25869ElzaIXDhD4JGbyoEVxUedN8FKwnfmwhucgKICc+pNB1mZhdCdhsa2ky0FAAAAABJRU5ErkJggg==")
     })
 
     local value_text = slider:Create("Text", {
