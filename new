@@ -2214,7 +2214,7 @@ function components.dropdown(holder, options, zindex)
             end
 
             update_value()
-            
+
             library.flags[options.flag] = {}
             options.callback{}
         end
@@ -2236,6 +2236,8 @@ function components.colorpicker(holder, options, zindex)
     utility.defaults(options, {
         name = "colorpicker",
         default = fromRGB(255, 255, 255),
+        rainbow = false,
+        sync = false,
         ignored = options.noconfig or options.ignoreconfig or options.configignore or false,
         flag = utility.new_flag(),
         callback = function() end
@@ -2271,21 +2273,50 @@ function components.colorpicker(holder, options, zindex)
 
     local window = icon:Create("Square", {
         Theme = "Object Background",
-        Size = newUDim2(0, options.alpha and 192 or 176, 0, 176),
+        Size = newUDim2(0, options.alpha and 192 or 176, 0, 179),
         Visible = false,
-        OutlineTheme = "Object Border",
+        Outline = false,
         Position = newUDim2(1, -(options.alpha and 192 or 176), 1, 5),
-        ZIndex = zindex + 14
+        ZIndex = zindex + 13
     })
 
     window:Create("Text", {
         Text = options.name,
         Font = library.font,
         Size = library.font_size,
-        Position = newUDim2(0, 6, 0, 4),
+        Position = newUDim2(0, 6, 0, 3),
         Theme = "Text",
-        ZIndex = zindex + 15
+        ZIndex = zindex + 16
     })
+
+    window:Create("Square", {
+        Size = newUDim2(1, 2, 1, 2),
+        Position = newUDim2(0, -1, 0, -1),
+        Theme = "Window Background",
+        OutlineTheme = "Black Border",
+        ZIndex = zindex + 12,
+    })
+
+    window:Create("Square", {
+        Size = newUDim2(1, 0, 0, 19),
+        ZIndex = zindex + 14,
+        Theme = "Window Background",
+        Outline = false
+    }):Create("Square", {
+        Size = newUDim2(1, 2, 1, 2),
+        Position = newUDim2(0, -1, 0, -1),
+        Theme = "Window Border",
+        ZIndex = zindex + 13,
+        OutlineTheme = "Black Border"
+    });
+
+    window:Create("Square", {
+        Size = newUDim2(1, 0, 1, -19),
+        Position = newUDim2(0, 0, 0, 19),
+        ZIndex = zindex + 15,
+        Theme = "Tab Background",
+        OutlineTheme = "Tab Border"
+    });
 
     local saturation_frame = window:Create("Square", {
         Color = options.default,
@@ -3139,8 +3170,8 @@ function library:Loader(options)
 
     window:Create("Text", {
         Text = options.title,
-        Font = library.font,
-        Size = library.font_size,
+        Font = self.font,
+        Size = self.font_size,
         Position = newUDim2(0, 6, 0, 4),
         Theme = "Text",
         ZIndex = 124
@@ -3196,8 +3227,8 @@ function library:Loader(options)
 
     change_log:Create("Text", {
         Text = "Changelog - Last Update: " .. options.date,
-        Font = library.font,
-        Size = library.font_size,
+        Font = self.font,
+        Size = self.font_size,
         Position = newUDim2(0, 6, 0, 4),
         Theme = "Text",
         ZIndex = 129
@@ -3208,8 +3239,8 @@ function library:Loader(options)
     for _, text in next, options.added do
         bound_addition += change_log:Create("Text", {
             Text = "+ " .. text,
-            Font = library.font,
-            Size = library.font_size,
+            Font = self.font,
+            Size = self.font_size,
             Position = newUDim2(0, 6, 0, 20 + bound_addition),
             Color = newColor3(0.46, 1, 0.69),
             ZIndex = 129
@@ -3219,8 +3250,8 @@ function library:Loader(options)
     for _, text in next, options.changed do
         bound_addition += change_log:Create("Text", {
             Text = "* " .. text,
-            Font = library.font,
-            Size = library.font_size,
+            Font = self.font,
+            Size = self.font_size,
             Position = newUDim2(0, 6, 0, 20 + bound_addition),
             Theme = "Disabled Text",
             ZIndex = 129
@@ -3230,8 +3261,8 @@ function library:Loader(options)
     for _, text in next, options.removed do
         bound_addition += change_log:Create("Text", {
             Text = "- " .. text,
-            Font = library.font,
-            Size = library.font_size,
+            Font = self.font,
+            Size = self.font_size,
             Position = newUDim2(0, 6, 0, 20 + bound_addition),
             Color = newColor3(1, 0.258823, 0.258823),
             ZIndex = 129
@@ -3240,12 +3271,12 @@ function library:Loader(options)
 
     change_log.Size = newUDim2(1, 0, 0, bound_addition + 26);
 
-    local textbounds = utility.text_length(options.description, library.font, library.font_size);
+    local textbounds = utility.text_length(options.description, self.font, self.font_size);
 
     local description_text = holder:Create("Text", {
         Text = options.description,
-        Font = library.font,
-        Size = library.font_size,
+        Font = self.font,
+        Size = self.font_size,
         Position = newUDim2(0.5, -textbounds.X * 0.5, 0, 2.5),
         Theme = "Text",
         ZIndex = 126
@@ -3286,8 +3317,8 @@ function library:Loader(options)
 
     load:Create("Text", {
         Text = "Load",
-        Font = library.font,
-        Size = library.font_size,
+        Font = self.font,
+        Size = self.font_size,
         Position = newUDim2(0.5, 0, 0, 3),
         Theme = "Text",
         Center = true,
@@ -3306,8 +3337,8 @@ function library:Loader(options)
 
     close:Create("Text", {
         Text = "Close",
-        Font = library.font,
-        Size = library.font_size,
+        Font = self.font,
+        Size = self.font_size,
         Position = newUDim2(0.5, 0, 0, 3),
         Theme = "Text",
         Center = true,
@@ -3326,8 +3357,8 @@ function library:Loader(options)
 
     changelog:Create("Text", {
         Text = "Changelog",
-        Font = library.font,
-        Size = library.font_size,
+        Font = self.font,
+        Size = self.font_size,
         Position = newUDim2(0.5, 0, 0, 3),
         Theme = "Text",
         Center = true,
