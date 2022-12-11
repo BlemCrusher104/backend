@@ -708,7 +708,7 @@ local library = {
     notification_y = "bottom",
     watermark_x = "left",
     watermark_y = "top",
-    font = "plex",
+    font = worldtoscreen ~= nil and "system" or "plex",
     font_size = 13,
     themes = {
         Default = {
@@ -2835,11 +2835,9 @@ function library:FadeIn()
 end
 
 function library:Init()
-    local config = self:GetFile("configs", "auto_load")
-
-    self:LoadConfig(config)
-    self:FadeIn()
-    self.initialized = true
+    self:LoadConfig(library:GetAutoLoadConfig());
+    self:FadeIn();
+    self.initialized = true;
 end
 
 function library:CreateFolder(name)
@@ -2859,7 +2857,7 @@ function library:CreateFile(folder, name, extension)
         local folder = self:CreateFolder(folder)
         local file = ("%s\\%s.%s"):format(folder, name, extension)
 
-        writefile(file, "{}")
+        writefile(file, extension == "json" and "{}" or "")
 
         return true
     end
@@ -2897,7 +2895,6 @@ function library:GetFiles(folder)
     local file_tbl = {}
 
     for i, file in next, files do
-        print(folder, file:gsub(folder .. "\\", ""))
         file_tbl[file:gsub(folder .. "\\", ""):split(".")[1]] = readfile(file)
     end
 
@@ -2911,6 +2908,8 @@ function library:DeleteFile(folder, name, extension)
 
         if isfile(file) then
             delfile(file)
+
+            return true
         end
     end
 end
@@ -2922,10 +2921,19 @@ function library:CreateConfig(name)
 end
 
 function library:SetAutoLoadConfig(name)
-    local folder = ("%s\\%s\\configs"):format(self.folder, self.game)
-    local file = ("%s\\%s.%s"):format(folder, "auto_load", self.extension)
+    local folder = ("%s\\%s"):format(self.folder, self.game)
+    local file = ("%s\\%s.%s"):format(folder, "auto_load", "txt")
 
     writefile(file, name)
+end
+
+function library:GetAutoLoadConfig()
+    local folder = ("%s\\%s"):format(self.folder, self.game)
+    local file = ("%s\\%s.%s"):format(folder, "auto_load", "txt")
+
+    if (isfile(file)) then
+        return readfile(file);
+    end
 end
 
 function library:SaveConfig(name)
@@ -2934,7 +2942,7 @@ function library:SaveConfig(name)
 
         for flag, object in next, self.config_objects do
             local value = self.flags[flag]
-            
+
             if typeof(value) == "EnumItem" then
                 if tostring(value):find("KeyCode") then
                     config[flag] = "KEY_" .. tostring(value):gsub("Enum.KeyCode.", "")
@@ -2950,9 +2958,7 @@ function library:SaveConfig(name)
             end
         end
 
-        local config_str = services.HttpService:JSONEncode(config)
-
-        local file = self:SaveFile("configs", name, self.extension, config_str)
+        self:SaveFile("configs", name, self.extension, services.HttpService:JSONEncode(config))
 
         return true
     end
@@ -2962,7 +2968,7 @@ function library:LoadConfig(name)
     if typeof(name) == "string" then
         local file = self:GetFile("configs", name, self.extension)
 
-        if file then  
+        if file then
             self.current_config = name
             local config = services.HttpService:JSONDecode(file)
 
@@ -2976,9 +2982,11 @@ function library:LoadConfig(name)
 
             library:LoadTheme(library.flags["selected_theme"]);
 
-            for option, colorpicker in next, theme_colorpickers do
+            for option, colorpicker in next, library.theme_colorpickers do
                 colorpicker:Set(library.theme[option])
             end
+
+            return true
         end
     end
 end
@@ -2997,7 +3005,7 @@ function library:GetConfigs()
 end
 
 function library:DeleteConfig(name)
-    self:DeleteFile("configs", name, self.extensio)
+    return self:DeleteFile("configs", name, self.extension)
 end
 
 function library:ChangeThemeObject(object, theme, outline)
@@ -3042,7 +3050,7 @@ function library:LoadTheme(name)
             for option, color in next, theme do
                 theme[option] = fromHex(color)
             end
-            
+
             library:OverrideTheme(theme)
         end
     end
@@ -4315,7 +4323,7 @@ function library:Load(options)
         playerlistmax = options.maxplayers or 32,
         performancedrag = true,
         keybindlist = true,
-        font = "plex",
+        font = worldtoscreen ~= nil and "system" or "plex",
         fontsize = 13,
         discord = "6wp393UeCc",
         sizex = 700,
@@ -4862,12 +4870,22 @@ function library:Load(options)
 
         local settings = self:Tab("Settings")
         local configs = settings:Section{name = "Configs"}
+        local autoload
 
         local config_dropdown = configs:Dropdown{
             name = "Config",
-            content = library:GetConfigs(),
             default = self.current_config,
-            flag = "selected_config"
+            content = library:GetConfigs(),
+            flag = "selected_config",
+            callback = function(selected)
+                if (autoload) then
+                    local auto_load_config = library:GetAutoLoadConfig();
+
+                    if (selected == auto_load_config) then
+                        autoload:set(true);
+                    end
+                end
+            end
         }
 
         configs:Button{
@@ -4888,6 +4906,7 @@ function library:Load(options)
             callback = function()
                 if library:CreateConfig(library.flags["config_name"]) and not config_dropdown:Exists(library.flags["config_name"]) then
                     config_dropdown:Add(library.flags["config_name"])
+                    library:Notify{title = "Configuration", message = ("Successfully created config '%s'"):format(library.flags["config_name"]), duration = 5}
                 end
             end
         }
@@ -4896,8 +4915,9 @@ function library:Load(options)
             name = "Save Config",
             callback = function()
                 if library.flags["selected_config"] then
-                    library:Notify{title = "Configuration", message = ("Successfully saved config '%s'"):format(library.flags["selected_config"])}
-                    library:SaveConfig(library.flags["selected_config"])
+                    if (library:SaveConfig(library.flags["selected_config"])) then
+                        library:Notify{title = "Configuration", message = ("Successfully saved config '%s'"):format(library.flags["selected_config"]), duration = 5}
+                    end
                 end
             end
         }
@@ -4905,36 +4925,38 @@ function library:Load(options)
         configs:Button{
             name = "Load Config",
             callback = function()
-                library:LoadConfig(library.flags["selected_config"])
+                if (library:LoadConfig(library.flags["selected_config"])) then
+                    library:Notify{title = "Configuration", message = ("Successfully loaded config '%s'"):format(library.flags["selected_config"]), duration = 5}
+                end
             end
         }
 
         configs:Button{
             name = "Delete Config",
             callback = function()
-                library:DeleteConfig(library.flags["selected_config"])
-                config_dropdown:Remove(library.flags["selected_config"])
+                local selected = library.flags["selected_config"];
+                if (selected) then
+                    library:DeleteConfig(selected);
+                    config_dropdown:Remove(selected);
+                    library:Notify{title = "Configuration", message = ("Successfully deleted config '%s'"):format(selected), duration = 5};
+                end
             end
         }
 
-        local autoload
         autoload = configs:Toggle{
-            name = "Autoload Config on Execute",
+            name = "Autoload Config",
             default = false,
-            flag = "autoload",
+            flag = "auto_load",
             callback = function(value)
                 if library.initialized then
-                    if value then
-                        if library.flags["selected_config"] then
+                    local selected = library.flags["selected_config"];
+
+                    if (selected) then
+                        library:SetAutoLoadConfig(value and selected or "");
+
+                        if (value) then
                             library:Notify{title = "Configuration", message = ("Successfully set config '%s' as auto load"):format(library.flags["selected_config"])}
-                            library:SetAutoLoadConfig(library.flags["selected_config"])
-                        else
-                            library:Notify{title = "Configuration", message = ("Cannot set no config as auto load"):format(library.flags["selected_config"])}
-                            library:SetAutoLoadConfig("")
-                            autoload:Set(false)
                         end
-                    else
-                        library:SetAutoLoadConfig("")
                     end
                 end
             end
@@ -4942,6 +4964,7 @@ function library:Load(options)
 
         local themes, customTheme = settings:multiSection{Side = "middle", Sections = { "Themes", "Custom Theme" }}
         local theme_colorpickers = {}
+        library.theme_colorpickers = theme_colorpickers;
 
         local theme_options = {"Accent", "Window Background", "Window Border", "Black Border", "Text", "Disabled Text", "Tab Background", "Tab Border", "Section Background", "Section Border", "Object Background", "Object Border", "Dropdown Option Background"}
 
@@ -5213,4 +5236,6 @@ function library:Load(options)
 end
 
 utility.format(library, true)
-return library
+--return library
+library:Load({playerlist=true}):SettingsTab();
+library:Init();
