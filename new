@@ -5236,6 +5236,4 @@ function library:Load(options)
 end
 
 utility.format(library, true)
---return library
-library:Load({playerlist=true}):SettingsTab();
-library:Init();
+return library
