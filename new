@@ -2451,7 +2451,7 @@ function components.colorpicker(holder, options, zindex)
             options.callback(color, options.alpha and opacity or nil)
         end
     end
-    
+
     set(options.default, options.alpha)
 
     local function update_saturation(input)
@@ -2464,7 +2464,7 @@ function components.colorpicker(holder, options, zindex)
         saturation_picker.Position = newUDim2(0, posX, 0, posY)
         set(fromHSV(hue_position, sizeX, sizeY), alpha, false, true)
     end
-    
+
     local function update_hue(input)
         local sizeX = clamp((input.Position.X - hue_frame.AbsolutePosition.X) / hue_frame.AbsoluteSize.X, 0, 1)
         local posX = clamp(sizeX * hue_frame.AbsoluteSize.X, 0, hue_frame.AbsoluteSize.X - 2)
@@ -4647,22 +4647,46 @@ function library:Load(options)
 
             local section = column:Create("Square", {
                 Size = newUDim2(1, 0, 0, 40),
+                ZIndex = 6,
+                Theme = "Section Background",
+                OutlineTheme = "Section Border"
+            })
+
+            local border = section:Create("Square", {
+                Size = newUDim2(1, 2, 1, 2),
+                Position = newUDim2(0, -1, 0, -1),
+                Theme = "Section Background",
+                OutlineTheme = "Black Border",
+                ZIndex = 6,
+            })
+
+            local main = section:Create("Square", {
+                Size = newUDim2(1, 0, 0, 18),
                 ZIndex = 7,
                 Theme = "Section Background",
-                OutlineTheme = "Section Border"
+                Outline = false
             })
-            
-            local title_background = section:Create("Square", {
-                Size = newUDim2(1, 0, 0, 18),
-                ZIndex = 9,
+
+            local main_border = main:Create("Square", {
+                Size = newUDim2(1, 2, 1, 2),
+                Position = newUDim2(0, -1, 0, -1),
+                Theme = "Section Border",
+                ZIndex = 6,
+                OutlineTheme = "Black Border"
+            });
+
+            local background = section:Create("Square", {
+                Size = newUDim2(1, 0, 1, -18),
+                Position = newUDim2(0, 0, 0, 18),
+                ZIndex = 8,
                 Theme = "Section Background",
                 OutlineTheme = "Section Border"
-            })
+            });
 
             for i, name in next, options.sections do
                 local first = i == 1
 
-                local section_button = title_background:Create("Text", {
+                local section_button = main:Create("Text", {
                     Text = name,
                     Font = library.font,
                     Size = library.font_size,
@@ -4686,13 +4710,13 @@ function library:Load(options)
                 section_button.MouseButton1Click:Connect(function()
                     if not section_content.Visible then
                         for _, object in next, section:GetChildren() do
-                            if object ~= tab and object ~= title_background then
+                            if object ~= tab and object ~= border and object ~= main and object ~= background then
                                 object.Visible = false
                             end
                         end
         
-                        for _, object in next, title_background:GetChildren() do
-                            if object ~= section_button then
+                        for _, object in next, main:GetChildren() do
+                            if object ~= section_button and object ~= main_border then
                                 library:ChangeThemeObject(object, "Disabled Text")
                             end
                         end
