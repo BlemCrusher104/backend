@@ -701,14 +701,14 @@ local library = {
     paste_textbox = newInstance("TextBox"),
     unnamed_flags = 0,
     tween_speed = 0.1,
-    easing_style = Enum.EasingStyle.Linear,
+    easing_style = Enum.EasingStyle.Quart,
     toggle_speed = 0.2,
-    notification_speed = 0.2,
+    notification_speed = 0.5,
     notification_x = "right",
     notification_y = "bottom",
     watermark_x = "left",
     watermark_y = "top",
-    font = worldtoscreen ~= nil and "system" or "plex",
+    font = worldtoscreen ~= nil and 1 or 2,
     font_size = 13,
     themes = {
         Default = {
@@ -1134,7 +1134,7 @@ function utility.dragify(object, drag_outline)
             end
         end
     end)
-end 
+end
 
 function utility.text_length(str, font, size)
     local text = Render.new("Text")
@@ -2236,8 +2236,6 @@ function components.colorpicker(holder, options, zindex)
     utility.defaults(options, {
         name = "colorpicker",
         default = fromRGB(255, 255, 255),
-        rainbow = false,
-        sync = false,
         ignored = options.noconfig or options.ignoreconfig or options.configignore or false,
         flag = utility.new_flag(),
         callback = function() end
@@ -2558,6 +2556,90 @@ function components.colorpicker(holder, options, zindex)
 
     utility.format(colorpicker_types, true)
     return colorpicker_types
+end
+
+function components.subgroup(holder, options, zindex)
+    zindex = zindex or 11;
+
+    utility.format(options);
+
+    utility.defaults(options, {
+        name = "subgroup"
+    });
+
+    local icon = holder.main:Create("Square", {
+        Size = newUDim2(0, 18, 0, 9),
+        Position = newUDim2(1, -20, 0, 2),
+        ZIndex = zindex,
+        OutlineTheme = "Object Border"
+    });
+
+    icon:Create("Image", {
+        Size = newUDim2(1, 0, 1, 0),
+        ZIndex = zindex - 1,
+        Data = decode("iVBORw0KGgoAAAANSUhEUgAAABIAAAAKBAMAAABLZROSAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAGUExURb+/v////5nD/3QAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAVSURBVBjTY2AQhEIkliAWSLY6QQYAknwC7Za+1vYAAAAASUVORK5CYII=")
+    });
+
+    local window = icon:Create("Square", {
+        Theme = "Object Background",
+        Size = newUDim2(0, 200, 0, 179),
+        Visible = false,
+        Outline = false,
+        Position = newUDim2(1, 5, 0, 0),
+        ZIndex = zindex + 13
+    });
+
+    window:Create("Text", {
+        Text = options.name,
+        Font = library.font,
+        Size = library.font_size,
+        Position = newUDim2(0, 6, 0, 3),
+        Theme = "Text",
+        ZIndex = zindex + 16
+    });
+
+    window:Create("Square", {
+        Size = newUDim2(1, 2, 1, 2),
+        Position = newUDim2(0, -1, 0, -1),
+        Theme = "Window Background",
+        OutlineTheme = "Black Border",
+        ZIndex = zindex + 12,
+    });
+
+    window:Create("Square", {
+        Size = newUDim2(1, 0, 0, 19),
+        ZIndex = zindex + 14,
+        Theme = "Window Background",
+        Outline = false
+    }):Create("Square", {
+        Size = newUDim2(1, 2, 1, 2),
+        Position = newUDim2(0, -1, 0, -1),
+        Theme = "Window Border",
+        ZIndex = zindex + 13,
+        OutlineTheme = "Black Border"
+    });
+
+    window:Create("Square", {
+        Size = newUDim2(1, 0, 1, -19),
+        Position = newUDim2(0, 0, 0, 19),
+        ZIndex = zindex + 15,
+        Theme = "Tab Background",
+        OutlineTheme = "Tab Border"
+    });
+
+    icon.MouseButton1Click:Connect(function()
+        if holder.section.tab.current_subgroup and holder.section.tab.current_subgroup ~= window then
+            holder.section.tab.current_subgroup.Visible = false;
+        end
+
+        holder.section.tab.current_subgroup = window;
+        window.Visible = not window.Visible;
+    end);
+
+    local group_types = {};
+
+    utility.format(group_types, true);
+    return group_types;
 end
 
 function components.list(options)
@@ -3459,19 +3541,40 @@ function library:Notify(options)
     notification:Create("Square", {
         Size = newUDim2(1, 2, 1, 2),
         Position = newUDim2(0, -1, 0, -1),
-        Theme = "Window Border",
+        Theme = "Window Background",
+        OutlineTheme = "Black Border",
         ZIndex = 4,
-        OutlineTheme = "Black Border"
-    }, true)
+    });
 
-    local title = notification:Create("Text", {
+    notification:Create("Square", {
+        Size = newUDim2(1, 0, 0, 19),
+        ZIndex = 6,
+        Theme = "Window Background",
+        Outline = false
+    }):Create("Square", {
+        Size = newUDim2(1, 2, 1, 2),
+        Position = newUDim2(0, -1, 0, -1),
+        Theme = "Window Border",
+        ZIndex = 5,
+        OutlineTheme = "Black Border"
+    });
+
+    notification:Create("Square", {
+        Size = newUDim2(1, 0, 1, -19),
+        Position = newUDim2(0, 0, 0, 19),
+        ZIndex = 7,
+        Theme = "Tab Background",
+        OutlineTheme = "Tab Border"
+    });
+
+    notification:Create("Text", {
         Text = options.title,
         Font = library.font,
         Size = library.font_size,
         Ignored = true,
         Position = newUDim2(0, 6, 0, 3),
         [options.color and "Color" or "Theme"] = options.color or "Accent",
-        ZIndex = 6,
+        ZIndex = 8,
         Outline = true,
     }, true)
 
@@ -3480,13 +3583,13 @@ function library:Notify(options)
         Font = library.font,
         Ignored = true,
         Size = library.font_size,
-        Position = newUDim2(0, 6, 0, 18),
+        Position = newUDim2(0, 6, 0, 24),
         Theme = "Text",
-        ZIndex = 6,
+        ZIndex = 8,
         Outline = true,
     }, true)
 
-    notification.Size = newUDim2(0, message.TextBounds.X + 30, 0, 36)
+    notification.Size = newUDim2(0, message.TextBounds.X + 30, 0, 40)
 
     notification.Position = newUDim2(left and -1 or 1, left and -(notification.AbsoluteSize.X + 12) or 12, 0, top and (idx - 1) * 46 or (-idx + 1) * 46)
     notification:Tween(newInfo(self.notification_speed, library.easing_style), {Position = newUDim2(0, left and 0 or -notification.AbsoluteSize.X, 0, top and (idx - 1) * 46 or (-idx + 1) * 46)})
@@ -3497,7 +3600,7 @@ function library:Notify(options)
 
         notification:Tween(newInfo(self.notification_speed, library.easing_style), {Position = newUDim2(self.notification_x == "left" and -1 or 1, self.notification_x == "left" and -(notification.AbsoluteSize.X + 12) or 12, 0, self.notification_y == "top" and (idx - 1) * 46 or (-idx + 1) * 46)}).Completed:Connect(function()
             notification:Destroy()
-            
+
             for i, notification in next, self.notifications do
                 notification:Tween(newInfo(self.notification_speed, library.easing_style), {Position = newUDim2(0, self.notification_x == "left" and 0 or -notification.AbsoluteSize.X, 0, self.notification_y == "top" and (i - 1) * 46 or (-i + 1) * 46)})
             end
@@ -4302,7 +4405,7 @@ function library:Window(options)
                 ZIndex = 80,
                 Outline = false
             })
-            
+
             holder.text = holder.main:Create("Text", {
                 Text = options.name,
                 Font = library.font,
@@ -4314,6 +4417,32 @@ function library:Window(options)
             self:Resize()
 
             return components.colorpicker(holder, options, 81)
+        end
+
+        function section_types:Subgroup(options)
+            utility.format(options);
+            options.name = options.name or "subgroup";
+
+            local holder = {section = self}
+
+            holder.main = self.content:Create("Square", {
+                Size = newUDim2(1, 0, 0, 13),
+                Transparency = 0,
+                ZIndex = 80,
+                Outline = false
+            });
+            
+            holder.text = holder.main:Create("Text", {
+                Text = options.name,
+                Font = library.font,
+                Size = library.font_size,
+                Theme = "Text",
+                ZIndex = 79
+            });
+
+            self:Resize();
+
+            return components.subgroup(holder, options, 81);
         end
 
         utility.format(section_types, true);
@@ -4872,16 +5001,16 @@ function library:Load(options)
                 function section_types:Colorpicker(options)
                     utility.format(options)
                     options.name = options.name or "colorpicker"
-    
+
                     local holder = {colorpickers = 0, section = self}
-    
+
                     holder.main = self.content:Create("Square", {
                         Size = newUDim2(1, 0, 0, 13),
                         Transparency = 0,
                         ZIndex = 10,
                         Outline = false
                     })
-                    
+
                     holder.text = holder.main:Create("Text", {
                         Text = options.name,
                         Font = library.font,
@@ -4889,10 +5018,36 @@ function library:Load(options)
                         Theme = "Text",
                         ZIndex = 9
                     })
-    
+
                     self:Resize()
 
                     return components.colorpicker(holder, options)
+                end
+
+                function section_types:Subgroup(options)
+                    utility.format(options);
+                    options.name = options.name or "subgroup";
+
+                    local holder = {section = self}
+
+                    holder.main = self.content:Create("Square", {
+                        Size = newUDim2(1, 0, 0, 13),
+                        Transparency = 0,
+                        ZIndex = 10,
+                        Outline = false
+                    });
+
+                    holder.text = holder.main:Create("Text", {
+                        Text = options.name,
+                        Font = library.font,
+                        Size = library.font_size,
+                        Theme = "Text",
+                        ZIndex = 9
+                    });
+
+                    self:Resize();
+
+                    return components.subgroup(holder, options);
                 end
 
                 utility.format(section_types, true)
@@ -4992,7 +5147,7 @@ function library:Load(options)
                 local selected = library.flags["selected_config"];
                 if (selected) then
                     library:DeleteConfig(selected);
-                    config_dropdown:Remove(selected);
+                    config_dropdown:Refresh(library:GetConfigs())
                     library:Notify{title = "Configuration", message = ("Successfully deleted config '%s'"):format(selected), duration = 5};
                 end
             end
