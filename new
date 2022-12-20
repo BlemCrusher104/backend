@@ -3008,7 +3008,7 @@ function library:GetFiles(folder)
     local file_tbl = {}
 
     for i, file in next, files do
-        file_tbl[file:gsub(folder .. "\\", ""):split(".")[1]] = readfile(file)
+        file_tbl[file:gsub(".*\\", ""):split(".")[1]] = readfile(file)
     end
 
     return file_tbl
@@ -3093,10 +3093,12 @@ function library:LoadConfig(name)
                 end
             end
 
-            library:LoadTheme(library.flags["selected_theme"]);
+            library:LoadTheme(self.flags["selected_theme"]);
 
-            for option, colorpicker in next, library.theme_colorpickers do
-                colorpicker:Set(library.theme[option])
+            if (self.theme_colorpickers) then
+                for option, colorpicker in next, self.theme_colorpickers do
+                    colorpicker:Set(self.theme[option])
+                end
             end
 
             return true
@@ -4110,7 +4112,7 @@ function library:Window(options)
     utility.defaults(options, {
         title = "Window",
         visible = true,
-        doublecolumns = false,
+        doublecolumns = true,
         sizex = 200,
         sizey = 260,
     });
@@ -4203,11 +4205,83 @@ function library:Window(options)
 
     right_column:AddList(12);
 
-    local window_types = {Visible = options.visible, tab = holder, double_columns = options.doublecolumns, left_column = left_column};
-
+    local window_types = {Visible = options.visible, tab = holder, tab_buttons = {}, text_bounds = 0, double_columns = options.doublecolumns, left_column = left_column};
     self.windows[window] = window_types;
 
+    --[[function window_types:SubTab(name)
+        self.has_subtabs = true
+        local first = #self.tab:GetChildren() == 2
+
+        local tab_button = self.tab:Create("Text", {
+            Text = name,
+            Font = library.font,
+            Size = library.font_size,
+            Center = false,
+            Position = newUDim2(0, self.text_bounds, 0, 0),
+            Theme = first and "Text" or "Disabled Text",
+            ZIndex = 79
+        })
+
+        self.tab_buttons[tab_button] = true
+        self.text_bounds += tab_button.TextBounds.X + 7
+
+        local tab = self.tab:Create("Square", {
+            Size = newUDim2(1, 0, 1, -12),
+            Position = newUDim2(0, 0, 0, 19),
+            Transparency = 0,
+            Visible = first,
+            Outline = false
+        })
+
+        local left_column = tab:Create("Square", {
+            Transparency = 0,
+            Outline = false,
+            Size = newUDim2(1 / 2, -6, 1, 0)
+        });
+
+        left_column:AddList(12);
+
+        local right_column = tab:Create("Square", {
+            Transparency = 0,
+            Outline = false,
+            Size = newUDim2(1 / 2, -6, 1, 0),
+            Position = newUDim2(1 / 2, 6, 0, 0)
+        });
+
+        right_column:AddList(12);
+
+        tab_button.MouseButton1Click:Connect(function()
+            if not tab.Visible then
+                for _, object in next, self.tab:GetChildren() do
+                    if object ~= tab and object._class ~= "Text" then
+                        object.Visible = false
+                    end
+                end
+
+                for object, _ in next, self.tab_buttons do
+                    if object ~= tab_button then
+                        library:ChangeThemeObject(object, "Disabled Text")
+                    end
+                end
+
+                library:ChangeThemeObject(tab_button, "Text")
+                tab.Visible = true
+            end
+        end)
+
+        local column_types = clone(self)
+
+        column_types.has_subtabs = false
+        column_types.SubTab = nil
+        column_types.right_column = right_column
+        column_types.left_column = left_column
+
+        return column_types
+    end]]
+
     function window_types:Section(options)
+        if self.has_subtabs then return end
+
         utility.format(options);
 
         utility.defaults(options, {
@@ -4379,7 +4453,7 @@ function library:Window(options)
                 ZIndex = 80,
                 Outline = false
             })
-            
+
             holder.text = holder.main:Create("Text", {
                 Text = options.name,
                 Font = library.font,
