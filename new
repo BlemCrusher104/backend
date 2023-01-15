@@ -4290,7 +4290,7 @@ function library:Window(options)
         });
 
         local side = options.side:lower();
-        local column = self.double_columns and left_column or (side == "left" and left_column or right_column);
+        local column = self.double_columns and (side == "left" and left_column or right_column) or left_column;
 
         local section = column:Create("Square", {
             Size = newUDim2(1, 0, 0, 40),
