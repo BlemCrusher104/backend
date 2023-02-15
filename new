@@ -436,7 +436,7 @@ function Render:Set(property, value)
     if property == "Outline" and self._class ~= "Text" then
         if value then
             rawset(self, "_outline", newrender("Square"))
-            setproperty(self._outline, "Visible", true)
+            setproperty(self._outline, "Visible", self._properties.AbsoluteVisible)
             setproperty(self._outline, "Color", self.OutlineColor or fromRGB(0, 0, 0))
             setproperty(self._outline, "Filled", true)
             setproperty(self._outline, "Size", self.AbsoluteSize + newVector2(2, 2))
