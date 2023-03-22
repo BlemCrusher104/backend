@@ -174,6 +174,8 @@ local events = {}
 local changed_events = {}
 
 services.UserInputService.InputBegan:Connect(function(input, gpe)
+    task.desynchronize();
+    
     for object, events in next, events do
         if events.MouseButton1Down.Active or events.MouseButton1Click.Active or events.InputEnded.Active or events.InputBegan.Active then
             if object.AbsoluteVisible and mouse_over(object) and not mouse_over_higher_object(object) then
@@ -197,6 +199,8 @@ end)
 local last_update = tick()
 
 services.UserInputService.InputChanged:Connect(function(input, gpe)
+    task.desynchronize();
+    
     if tick() - last_update > 0.1 then
         last_update = tick()
         for object, events in next, changed_events do
@@ -224,6 +228,8 @@ services.UserInputService.InputChanged:Connect(function(input, gpe)
 end)
 
 services.UserInputService.InputEnded:Connect(function(input, gpe)
+    task.desynchronize();
+    
     for object, events in next, events do
         if events.MouseButton1Up.Active or events.MouseButton1Click.Active or events.InputEnded.Active then
             if events._inputBegan[input] then
@@ -5520,4 +5526,4 @@ function library:Load(options)
 end
 
 utility.format(library, true)
-return library
+return library;
