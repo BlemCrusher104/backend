@@ -131,11 +131,13 @@ local function calculate_udim2(position, size)
     return newposition
 end
 
+local uis = services.UserInputService;
+
 local function mouse_over(object)
     local posX, posY = object.AbsolutePosition.X, object.AbsolutePosition.Y
     local size = object.AbsoluteSize or object.TextBounds
     local sizeX, sizeY = posX + size.X, posY + size.Y
-    local position = services.UserInputService:GetMouseLocation()
+    local position = uis:GetMouseLocation()
 
     if position.X >= posX and position.Y >= posY and position.X <= sizeX and position.Y <= sizeY then
         return true
@@ -145,7 +147,7 @@ local function mouse_over(object)
 end
 
 local function mouse_over_higher_object(object)
-    local position = services.UserInputService:GetMouseLocation()
+    local position = uis:GetMouseLocation()
 
     for obj, _ in next, objects do
         if obj.AbsoluteVisible and obj.Transparency >= object.Transparency and obj.ZIndex > object.ZIndex then
