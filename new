@@ -4564,6 +4564,7 @@ function library:Load(options)
         playerlist = false,
         playerlistmax = options.maxplayers or 32,
         performancedrag = true,
+        menukey = Enum.KeyCode.RightShift,
         keybindlist = true,
         font = worldtoscreen ~= nil and "system" or "plex",
         fontsize = 13,
@@ -4591,6 +4592,7 @@ function library:Load(options)
     self.folder = options.folder
     self.discord = options.discord
     self.keybind_list_default = options.keybindlist
+    self.menu_key = options.menukey;
     self.extension = options.extension
     self.game = options.game
 
@@ -5415,7 +5417,7 @@ function library:Load(options)
 
         misc:Keybind{
             name = "Menu Key",
-            default = Enum.KeyCode.RightShift,
+            default = library.menu_key,
             blacklist = {Enum.UserInputType.MouseButton1, Enum.UserInputType.MouseButton2, Enum.UserInputType.MouseButton3},
             flag = "menu_key",
             listignored = true,
